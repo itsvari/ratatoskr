@@ -1,0 +1,33 @@
+# Bun
+bun.lockb
+.bun/
+
+# Node / npm
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# TypeScript build output
+dist/
+*.js.map
+
+# Wrangler
+.wrangler/
+worker-configuration.d.ts
+
+# Secrets & environment variables
+.env
+.env.*
+*.pem
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
