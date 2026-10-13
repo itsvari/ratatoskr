@@ -1,233 +1,213 @@
-import { authenticate } from "./auth";
-import {
-    deleteLink,
-    generateSlug,
-    getLink,
-    isValidSlug,
-    listLinks,
-    putLink,
-} from "./links";
-import type { Env, LinkRecord } from "./types";
+import { Hono } from "hono";
+import { z } from "zod";
+import { createLinkSchema, linkStatusSchema, updateLinkSchema } from "../shared/contracts";
+import { acceptsMutation, authenticate, type Administrator } from "./auth";
+import { loadConfiguration, type Bindings, type Configuration } from "./configuration";
+import { ApplicationError } from "./errors";
+import { createLink, deleteLink, exportLinks, getLink, listLinks, updateLink } from "./links";
+import { renderHome, renderPreview, renderUnavailable } from "./preview";
+import { parseCustomSlug } from "./slugs";
 
-// ---------------------------------------------------------------------------
-// Security headers
-// ---------------------------------------------------------------------------
-
-const SECURITY_HEADERS: HeadersInit = {
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "Referrer-Policy": "no-referrer",
+const MAXIMUM_REQUEST_BYTES = 8192;
+const HTTP_METHODS = new Set(["GET", "HEAD"]);
+const PUBLIC_FONT_PATHS = new Set(["/_fonts/inter.woff2", "/_fonts/jetbrains-mono.woff2"]);
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
+  "X-Frame-Options": "DENY",
+  "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
 };
 
-// Slugs that would shadow top-level API routes if used as shortlinks.
-const RESERVED_SLUGS = new Set(["api"]);
-
-// Retrying a handful of times keeps the collision window negligible even at
-// high KV fill rates, without risking an unbounded loop.
-const MAX_SLUG_GENERATION_ATTEMPTS = 5;
-
-// ---------------------------------------------------------------------------
-// Response helpers
-// ---------------------------------------------------------------------------
-
-function jsonResponse(body: unknown, status = 200): Response {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: { "Content-Type": "application/json" },
-    });
+interface RequestVariables {
+  readonly configuration: Configuration;
+  readonly administrator: Administrator;
 }
 
-function notFound(): Response {
-    return jsonResponse({ error: "Not found" }, 404);
+const application = new Hono<{ Bindings: Bindings; Variables: RequestVariables }>();
+
+async function parseBody<Schema extends z.ZodType>(request: Request, schema: Schema): Promise<z.output<Schema>> {
+  if (request.headers.get("Content-Type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") {
+    throw new ApplicationError("Send the request as application/json.", 415);
+  }
+  const reader = request.body?.getReader();
+  if (!reader) {
+    throw new ApplicationError("Provide a JSON request body.", 400);
+  }
+  const chunks: Uint8Array[] = [];
+  let receivedBytes = 0;
+  while (true) {
+    const result = await reader.read();
+    if (result.done) break;
+    receivedBytes += result.value.byteLength;
+    if (receivedBytes > MAXIMUM_REQUEST_BYTES) {
+      await reader.cancel();
+      throw new ApplicationError("Request body is too large.", 413);
+    }
+    chunks.push(result.value);
+  }
+  const bytes = new Uint8Array(receivedBytes);
+  let offsetBytes = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offsetBytes);
+    offsetBytes += chunk.byteLength;
+  }
+  try {
+    const decoded: unknown = JSON.parse(new TextDecoder().decode(bytes));
+    const parsed = schema.safeParse(decoded);
+    if (!parsed.success) {
+      throw new ApplicationError(parsed.error.issues[0]?.message ?? "Invalid request body.", 400);
+    }
+    return parsed.data;
+  } catch (error) {
+    if (error instanceof ApplicationError) throw error;
+    throw new ApplicationError("Request body must be valid JSON.", 400);
+  }
 }
 
-function methodNotAllowed(): Response {
-    return jsonResponse({ error: "Method not allowed" }, 405);
+function isAdministrationPath(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/")
+    || pathname === "/api" || pathname.startsWith("/api/") || pathname.startsWith("/assets/");
 }
 
-function badRequest(message: string): Response {
-    return jsonResponse({ error: message }, 400);
+function isLocalAssetPath(pathname: string): boolean {
+  return pathname.startsWith("/@") || pathname.startsWith("/node_modules/")
+    || /\.(?:tsx?|m?js|css)$/.test(pathname);
 }
 
-function conflict(message: string): Response {
-    return jsonResponse({ error: message }, 409);
-}
-
-function addSecurityHeaders(response: Response): Response {
-    const headers = new Headers(response.headers);
-    for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
-        headers.set(name, value);
+application.use("*", async (context, next) => {
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) context.header(name, value);
+  context.header("Cache-Control", "no-store");
+  const configuration = loadConfiguration(context.env);
+  context.set("configuration", configuration);
+  if (configuration.localDevelopment) {
+    context.header("Content-Security-Policy", SECURITY_HEADERS["Content-Security-Policy"]
+      .replace("script-src 'self'", "script-src 'self' 'unsafe-inline'")
+      .replace("connect-src 'self'", "connect-src 'self' ws://localhost:* ws://127.0.0.1:*"));
+  }
+  const url = new URL(context.req.url);
+  if (![configuration.shortOrigin, configuration.adminOrigin, configuration.previewOrigin].includes(url.origin)) {
+    return renderUnavailable(404);
+  }
+  const separateAdmin = configuration.adminOrigin !== configuration.shortOrigin;
+  if (PUBLIC_FONT_PATHS.has(url.pathname) && HTTP_METHODS.has(context.req.method)) {
+    return context.env.ASSETS.fetch(context.req.raw);
+  }
+  if (url.origin === configuration.shortOrigin && separateAdmin && (url.pathname === "/admin" || url.pathname.startsWith("/admin/"))) {
+    return context.redirect(configuration.adminOrigin, 302);
+  }
+  const administration = url.origin === configuration.adminOrigin
+    && (separateAdmin || isAdministrationPath(url.pathname)
+      || (configuration.localDevelopment && isLocalAssetPath(url.pathname)));
+  if (administration) {
+    const administrator = await authenticate(context.req.raw, configuration);
+    if (!administrator) return context.json({ error: "Sign in through Cloudflare Access to continue." }, 401);
+    if (!acceptsMutation(context.req.raw, configuration)) return context.json({ error: "This request must come from the admin panel." }, 403);
+    if (!configuration.localDevelopment && url.pathname.startsWith("/api/")) {
+      const allowance = await context.env.ADMIN_LIMITER.limit({ key: administrator.subject });
+      if (!allowance.success) {
+        context.header("Retry-After", "60");
+        return context.json({ error: "Too many requests. Please try again in a minute." }, 429);
+      }
     }
-    return new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers,
-    });
-}
-
-// ---------------------------------------------------------------------------
-// Route handlers
-// ---------------------------------------------------------------------------
-
-function handleHealth(): Response {
-    return jsonResponse({ status: "ok" });
-}
-
-async function handleListLinks(env: Env): Promise<Response> {
-    const links = await listLinks(env.LINKS);
-    return jsonResponse(links);
-}
-
-async function handleCreateLink(request: Request, env: Env): Promise<Response> {
-    let body: unknown;
-    try {
-        body = await request.json();
-    } catch {
-        return badRequest("Request body must be valid JSON");
+    context.set("administrator", administrator);
+    await next();
+    return;
+  }
+  if (isAdministrationPath(url.pathname)) return renderUnavailable(404);
+  if (!HTTP_METHODS.has(context.req.method)) return context.json({ error: "Method not allowed." }, 405, { Allow: "GET, HEAD" });
+  if (url.pathname !== "/" && url.pathname !== "/_health") {
+    const allowance = await context.env.PUBLIC_LIMITER.limit({ key: context.req.header("CF-Connecting-IP") ?? "anonymous" });
+    if (!allowance.success) {
+      context.header("Retry-After", "60");
+      return renderUnavailable(429);
     }
+  }
+  await next();
+});
 
-    if (typeof body !== "object" || body === null) {
-        return badRequest("Request body must be a JSON object");
+application.get("/api/session", (context) => {
+  const configuration = context.get("configuration");
+  return context.json({ email: context.get("administrator").email, shortOrigin: configuration.shortOrigin,
+    adminOrigin: configuration.adminOrigin, previewOrigin: configuration.previewOrigin });
+});
+
+application.get("/api/links", async (context) => {
+  const status = context.req.query("status");
+  const parsedStatus = status === undefined ? undefined : linkStatusSchema.safeParse(status);
+  if (parsedStatus && !parsedStatus.success) throw new ApplicationError("Invalid status filter.", 400);
+  const cursor = context.req.query("cursor");
+  return context.json(await listLinks(context.env.DB, {
+    search: context.req.query("search") ?? "",
+    ...(parsedStatus?.success ? { status: parsedStatus.data } : {}),
+    ...(cursor ? { cursor } : {}),
+  }));
+});
+
+application.post("/api/links", async (context) => {
+  const draft = await parseBody(context.req.raw, createLinkSchema);
+  return context.json(await createLink({ database: context.env.DB, configuration: context.get("configuration"),
+    administrator: context.get("administrator"), draft }), 201);
+});
+
+application.patch("/api/links/:slug", async (context) => {
+  const slug = parseCustomSlug(context.req.param("slug"));
+  if (!slug) throw new ApplicationError("Invalid shortlink.", 400);
+  const patch = await parseBody(context.req.raw, updateLinkSchema);
+  return context.json(await updateLink({ database: context.env.DB, configuration: context.get("configuration"),
+    administrator: context.get("administrator"), slug, patch }));
+});
+
+application.delete("/api/links/:slug", async (context) => {
+  const slug = parseCustomSlug(context.req.param("slug"));
+  if (!slug) throw new ApplicationError("Invalid shortlink.", 400);
+  await deleteLink(context.env.DB, slug, context.get("administrator"));
+  return context.body(null, 204);
+});
+
+application.get("/api/export", async (context) => context.json(await exportLinks(context.env.DB), 200, {
+  "Content-Disposition": 'attachment; filename="ratatoskr-links.json"',
+}));
+
+application.get("*", async (context) => {
+  const configuration = context.get("configuration");
+  const url = new URL(context.req.url);
+  const separateAdmin = configuration.adminOrigin !== configuration.shortOrigin;
+  if (configuration.localDevelopment && url.origin === configuration.adminOrigin && isLocalAssetPath(url.pathname)) {
+    return context.env.ASSETS.fetch(context.req.raw);
+  }
+  if (url.origin === configuration.adminOrigin && (separateAdmin || isAdministrationPath(url.pathname))) {
+    if (url.pathname.startsWith("/api")) return context.json({ error: "Not found." }, 404);
+    if (url.pathname.startsWith("/assets/")) return context.env.ASSETS.fetch(context.req.raw);
+    if (url.pathname === "/" || url.pathname === "/admin" || url.pathname === "/admin/") {
+      const assetUrl = new URL("/index.html", configuration.adminOrigin);
+      return context.env.ASSETS.fetch(new Request(assetUrl, context.req.raw));
     }
+    return renderUnavailable(404);
+  }
+  if (url.pathname === "/_health") return context.json({ status: "ok" });
+  if (url.pathname === "/") {
+    if (url.origin !== configuration.shortOrigin) return renderUnavailable(404);
+    return renderHome(separateAdmin ? configuration.adminOrigin : `${configuration.adminOrigin}/admin/`);
+  }
+  const requestedSlug = url.pathname.slice(1);
+  const preview = url.origin === configuration.previewOrigin || requestedSlug.endsWith("+");
+  const slug = parseCustomSlug(requestedSlug.endsWith("+") ? requestedSlug.slice(0, -1) : requestedSlug);
+  if (!slug) return renderUnavailable(404);
+  const link = await getLink(context.env.DB, slug);
+  if (!link) return renderUnavailable(404);
+  if (link.status !== "active" || (link.expiresAt !== null && Date.parse(link.expiresAt) <= Date.now())) return renderUnavailable(410);
+  if (preview) return renderPreview(link);
+  return context.redirect(link.destination, 302);
+});
 
-    const { url, slug: requestedSlug } = body as Record<string, unknown>;
+application.notFound((context) => context.json({ error: "Not found." }, 404));
+application.onError((error, context) => {
+  if (error instanceof ApplicationError) return context.json({ error: error.message }, error.status);
+  if (context.get("configuration")?.localDevelopment) console.error(error);
+  console.error(JSON.stringify({ event: "request_failed", error: error instanceof z.ZodError ? "invalid_configuration_or_data" : "internal_error" }));
+  if (context.req.path.startsWith("/api/")) return context.json({ error: "Temporarily unavailable. Please try again." }, 503);
+  return renderUnavailable(503);
+});
 
-    if (typeof url !== "string" || url.trim() === "") {
-        return badRequest("Field 'url' is required and must be a non-empty string");
-    }
-
-    let destination: URL;
-    try {
-        destination = new URL(url);
-    } catch {
-        return badRequest("Field 'url' must be a valid absolute URL");
-    }
-
-    if (destination.protocol !== "http:" && destination.protocol !== "https:") {
-        return badRequest("Field 'url' must use the http or https scheme");
-    }
-
-    const slugOrFailure = await resolveSlug(requestedSlug, env);
-    if (slugOrFailure instanceof Response) {
-        return slugOrFailure;
-    }
-
-    const collision = await getLink(env.LINKS, slugOrFailure);
-    if (collision !== null) {
-        return conflict(`Slug '${slugOrFailure}' is already in use`);
-    }
-
-    const record: LinkRecord = {
-        slug: slugOrFailure,
-        url: destination.toString(),
-        createdAt: new Date().toISOString(),
-    };
-
-    await putLink(env.LINKS, record);
-    return jsonResponse(record, 201);
-}
-
-/**
- * Resolves the slug to use for a new link.
- *
- * Returns the slug string on success, or a Response on validation failure.
- * Extracted to keep handleCreateLink within a comfortable indentation depth.
- */
-async function resolveSlug(requestedSlug: unknown, env: Env): Promise<string | Response> {
-    if (requestedSlug !== undefined) {
-        return validateCustomSlug(requestedSlug);
-    }
-    return generateUniqueSlug(env);
-}
-
-function validateCustomSlug(requestedSlug: unknown): string | Response {
-    if (typeof requestedSlug !== "string" || !isValidSlug(requestedSlug)) {
-        return badRequest(
-            "Field 'slug' must be a non-empty string containing only alphanumeric characters and hyphens",
-        );
-    }
-
-    if (RESERVED_SLUGS.has(requestedSlug.toLowerCase())) {
-        return badRequest(`Slug '${requestedSlug}' is reserved`);
-    }
-
-    return requestedSlug;
-}
-
-async function generateUniqueSlug(env: Env): Promise<string | Response> {
-    for (let attempt = 0; attempt < MAX_SLUG_GENERATION_ATTEMPTS; attempt++) {
-        const candidate = generateSlug();
-        const existing = await getLink(env.LINKS, candidate);
-        if (existing === null) {
-            return candidate;
-        }
-    }
-
-    return jsonResponse(
-        { error: "Could not generate a unique slug — please try again" },
-        503,
-    );
-}
-
-async function handleDeleteLink(slug: string, env: Env): Promise<Response> {
-    const existing = await getLink(env.LINKS, slug);
-    if (existing === null) {
-        return notFound();
-    }
-
-    await deleteLink(env.LINKS, slug);
-    return new Response(null, { status: 204 });
-}
-
-async function handleRedirect(slug: string, env: Env): Promise<Response> {
-    const record = await getLink(env.LINKS, slug);
-    if (record === null) {
-        return notFound();
-    }
-
-    return Response.redirect(record.url, 301);
-}
-
-// ---------------------------------------------------------------------------
-// Router
-// ---------------------------------------------------------------------------
-
-async function route(request: Request, env: Env): Promise<Response> {
-    const { pathname } = new URL(request.url);
-    const { method } = request;
-
-    if (pathname === "/api/health") {
-        return method === "GET" ? handleHealth() : methodNotAllowed();
-    }
-
-    if (method === "GET" && !pathname.startsWith("/api/")) {
-        const slug = pathname.slice(1);
-        return slug !== "" && isValidSlug(slug)
-            ? handleRedirect(slug, env)
-            : notFound();
-    }
-
-    const authFailure = authenticate(request, env);
-    if (authFailure !== null) {
-        return authFailure;
-    }
-
-    if (pathname === "/api/links") {
-        if (method === "POST") return handleCreateLink(request, env);
-        if (method === "GET") return handleListLinks(env);
-    }
-
-    const slugCapture = pathname.match(/^\/api\/links\/([^/]+)$/);
-    if (slugCapture !== null && method === "DELETE") {
-        return handleDeleteLink(slugCapture[1] as string, env);
-    }
-
-    return notFound();
-}
-
-export default {
-    async fetch(request: Request, env: Env): Promise<Response> {
-        const response = await route(request, env);
-        return addSecurityHeaders(response);
-    },
-} satisfies ExportedHandler<Env>;
+export default { fetch: application.fetch } satisfies ExportedHandler<Bindings>;

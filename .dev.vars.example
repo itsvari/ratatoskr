@@ -1,0 +1,7 @@
+SHORT_ORIGIN=http://localhost:5173
+ADMIN_ORIGIN=http://localhost:5173
+PREVIEW_ORIGIN=
+ACCESS_ISSUER=https://local.cloudflareaccess.com
+ACCESS_AUDIENCE=local-development
+ADMIN_EMAILS=developer@localhost
+LOCAL_DEVELOPMENT=true

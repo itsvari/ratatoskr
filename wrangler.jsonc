@@ -1,0 +1,33 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ratatoskr",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "dist/client",
+    "binding": "ASSETS",
+    "run_worker_first": ["/*", "!/_fonts/*"],
+    "not_found_handling": "none",
+    "html_handling": "none"
+  },
+  "vars": {
+    "SHORT_ORIGIN": "https://links.example.com",
+    "ADMIN_ORIGIN": "",
+    "PREVIEW_ORIGIN": "",
+    "ACCESS_ISSUER": "https://your-team.cloudflareaccess.com",
+    "ACCESS_AUDIENCE": "",
+    "ADMIN_EMAILS": ""
+  },
+  "d1_databases": [{
+    "binding": "DB", "database_name": "ratatoskr",
+    "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations"
+  }],
+  "ratelimits": [
+    { "name": "ADMIN_LIMITER", "namespace_id": "9201", "simple": { "limit": 60, "period": 60 } },
+    { "name": "PUBLIC_LIMITER", "namespace_id": "9202", "simple": { "limit": 300, "period": 60 } }
+  ],
+  "observability": { "enabled": true, "head_sampling_rate": 0.1 }
+}

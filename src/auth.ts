@@ -1,50 +1,48 @@
-import type { Env } from "./types";
+import { createRemoteJWKSet, jwtVerify } from "jose";
+import { z } from "zod";
+import type { Configuration } from "./configuration";
 
-const BEARER_PREFIX = "Bearer ";
-
-// Constant-time comparison prevents an attacker from learning how many
-// characters of their guess were correct by measuring response latency.
-function stringsMatch(expected: string, provided: string): boolean {
-    const encoder = new TextEncoder();
-    const expectedBytes = encoder.encode(expected);
-    const providedBytes = encoder.encode(provided);
-
-    if (expectedBytes.length !== providedBytes.length) {
-        return false;
-    }
-
-    let differingBits = 0;
-    for (let index = 0; index < expectedBytes.length; index++) {
-        differingBits |= (expectedBytes[index] as number) ^ (providedBytes[index] as number);
-    }
-
-    return differingBits === 0;
+export interface Administrator {
+  readonly subject: string;
+  readonly email: string;
 }
 
-/**
- * Validates the `Authorization: Bearer <token>` header against the configured API key.
- *
- * @returns A `401 Unauthorized` Response if authentication fails, or `null` if it passes.
- */
-export function authenticate(request: Request, env: Env): Response | null {
-    const authHeader = request.headers.get("Authorization") ?? "";
+const claimsSchema = z.object({ sub: z.string().min(1), email: z.email(), exp: z.number(), iat: z.number() });
+const signingKeys = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+const UNSAFE_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 
-    if (!authHeader.startsWith(BEARER_PREFIX)) {
-        return unauthorised();
-    }
-
-    const providedKey = authHeader.slice(BEARER_PREFIX.length);
-
-    if (!stringsMatch(env.API_KEY, providedKey)) {
-        return unauthorised();
-    }
-
+export async function authenticate(request: Request, configuration: Configuration): Promise<Administrator | null> {
+  if (configuration.localDevelopment && new URL(request.url).origin === configuration.adminOrigin) {
+    return { subject: "local-development", email: "developer@localhost" };
+  }
+  const token = request.headers.get("Cf-Access-Jwt-Assertion");
+  if (!token) {
     return null;
+  }
+  let keys = signingKeys.get(configuration.accessIssuer);
+  if (!keys) {
+    keys = createRemoteJWKSet(new URL(`${configuration.accessIssuer}/cdn-cgi/access/certs`));
+    signingKeys.set(configuration.accessIssuer, keys);
+  }
+  try {
+    const result = await jwtVerify(token, keys, {
+      issuer: configuration.accessIssuer, audience: configuration.accessAudience,
+      algorithms: ["RS256"], requiredClaims: ["exp", "iat", "sub", "email"],
+    });
+    const claims = claimsSchema.safeParse(result.payload);
+    if (!claims.success || !configuration.administratorEmails.includes(claims.data.email.toLowerCase())) {
+      return null;
+    }
+    return { subject: claims.data.sub, email: claims.data.email.toLowerCase() };
+  } catch {
+    return null;
+  }
 }
 
-function unauthorised(): Response {
-    return new Response(JSON.stringify({ error: "Unauthorised" }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-    });
+export function acceptsMutation(request: Request, configuration: Configuration): boolean {
+  if (!UNSAFE_METHODS.has(request.method)) {
+    return true;
+  }
+  return request.headers.get("Origin") === configuration.adminOrigin
+    && !["cross-site", "same-site"].includes(request.headers.get("Sec-Fetch-Site") ?? "");
 }

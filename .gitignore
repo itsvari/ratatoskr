@@ -31,3 +31,12 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+wrangler.deploy.json
+deployment-state.json
+verification-artifacts/
+admin/public/_fonts/
+backup*.sql
