@@ -1,16 +1,17 @@
 import { env as environment } from "cloudflare:workers";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { createLinkSchema, linkStatusSchema, updateLinkSchema } from "../shared/contracts";
+import { createLinkSchema, linkExportFilename, linkStatusSchema, siteSettingsSchema, updateLinkSchema, type SiteSettings } from "../shared/contracts";
 import { acceptsMutation, authenticate, type Administrator } from "./auth";
 import { loadConfiguration, type Bindings, type Configuration } from "./configuration";
 import { ApplicationError } from "./errors";
 import { createLink, deleteLink, exportLinks, getLink, listLinks, updateLink } from "./links";
-import { renderHome, renderPreview, renderUnavailable } from "./preview";
+import { brandAdminPage, renderHome, renderPreview, renderUnavailable } from "./preview";
 import { previewUploadSchema, MAXIMUM_PREVIEW_UPLOAD_BYTES } from "../shared/preview-image";
 import { renderPreviewImage, storePreviewImage } from "./preview-image";
 import { destinationHasPreviewImage, isPreviewCrawler } from "./social-preview";
 import { parseCustomSlug } from "./slugs";
+import { getSiteSettings, updateSiteSettings } from "./settings";
 
 const MAXIMUM_REQUEST_BYTES = 8192;
 const HTTP_METHODS = new Set(["GET", "HEAD"]);
@@ -26,9 +27,23 @@ const SECURITY_HEADERS = {
 interface RequestVariables {
   readonly configuration: Configuration;
   readonly administrator: Administrator;
+  readonly siteSettings?: Promise<SiteSettings>;
 }
 
-const application = new Hono<{ Bindings: Bindings; Variables: RequestVariables }>();
+type ApplicationEnvironment = { Bindings: Bindings; Variables: RequestVariables };
+const application = new Hono<ApplicationEnvironment>();
+
+function readSettings(context: Context<ApplicationEnvironment>): Promise<SiteSettings> {
+  const existing = context.get("siteSettings");
+  if (existing) return existing;
+  const settings = getSiteSettings(context.env.DB);
+  context.set("siteSettings", settings);
+  return settings;
+}
+
+async function unavailable(context: Context<ApplicationEnvironment>, status: 404 | 410 | 429): Promise<Response> {
+  return renderUnavailable(status, (await readSettings(context)).displayName);
+}
 
 async function parseBody<Schema extends z.ZodType>(request: Request, schema: Schema, maximumBytes = MAXIMUM_REQUEST_BYTES): Promise<z.output<Schema>> {
   if (request.headers.get("Content-Type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") {
@@ -128,16 +143,24 @@ application.use("*", async (context, next) => {
     const allowance = await context.env.PUBLIC_LIMITER.limit({ key: context.req.header("CF-Connecting-IP") ?? "anonymous" });
     if (!allowance.success) {
       context.header("Retry-After", "60");
-      return renderUnavailable(429);
+      return renderUnavailable(429, "Shortlinks");
     }
   }
   await next();
 });
 
-application.get("/api/session", (context) => {
+application.get("/api/session", async (context) => {
   const configuration = context.get("configuration");
   return context.json({ email: context.get("administrator").email, shortOrigin: configuration.shortOrigin,
-    adminOrigin: configuration.adminOrigin, previewOrigin: configuration.previewOrigin });
+    adminOrigin: configuration.adminOrigin, previewOrigin: configuration.previewOrigin,
+    displayName: (await readSettings(context)).displayName });
+});
+
+application.get("/api/settings", async (context) => context.json(await readSettings(context)));
+
+application.patch("/api/settings", async (context) => {
+  const settings = await parseBody(context.req.raw, siteSettingsSchema);
+  return context.json(await updateSiteSettings(context.env.DB, context.get("administrator"), settings));
 });
 
 application.get("/api/links", async (context) => {
@@ -182,9 +205,12 @@ application.delete("/api/links/:slug", async (context) => {
   return context.body(null, 204);
 });
 
-application.get("/api/export", async (context) => context.json(await exportLinks(context.env.DB), 200, {
-  "Content-Disposition": 'attachment; filename="ratatoskr-links.json"',
-}));
+application.get("/api/export", async (context) => {
+  const { displayName } = await readSettings(context);
+  return context.json(await exportLinks(context.env.DB), 200, {
+    "Content-Disposition": `attachment; filename="${linkExportFilename(displayName)}"`,
+  });
+});
 
 application.get("*", async (context) => {
   const configuration = context.get("configuration");
@@ -198,29 +224,30 @@ application.get("*", async (context) => {
     if (url.pathname.startsWith("/assets/")) return context.env.ASSETS.fetch(context.req.raw);
     if (url.pathname === "/" || url.pathname === "/admin" || url.pathname === "/admin/") {
       const assetUrl = new URL("/index.html", configuration.adminOrigin);
-      return context.env.ASSETS.fetch(new Request(assetUrl, context.req.raw));
+      const response = await context.env.ASSETS.fetch(new Request(assetUrl, context.req.raw));
+      return brandAdminPage(response, (await readSettings(context)).displayName);
     }
-    return renderUnavailable(404);
+    return unavailable(context, 404);
   }
   if (url.pathname === "/_health") return context.json({ status: "ok" });
   if (url.pathname === "/") {
-    if (url.origin !== configuration.shortOrigin) return renderUnavailable(404);
-    return renderHome(separateAdmin ? configuration.adminOrigin : `${configuration.adminOrigin}/admin/`);
+    if (url.origin !== configuration.shortOrigin) return unavailable(context, 404);
+    return renderHome(separateAdmin ? configuration.adminOrigin : `${configuration.adminOrigin}/admin/`, (await readSettings(context)).displayName);
   }
   const imageSlug = /^\/_preview\/([a-z0-9-]+)\.png$/.exec(url.pathname)?.[1];
   const requestedSlug = imageSlug ?? url.pathname.slice(1);
   const preview = url.origin === configuration.previewOrigin || requestedSlug.endsWith("+");
   const slug = parseCustomSlug(requestedSlug.endsWith("+") ? requestedSlug.slice(0, -1) : requestedSlug);
-  if (!slug) return renderUnavailable(404);
+  if (!slug) return unavailable(context, 404);
   if (imageSlug) return renderPreviewImage(context.env.DB, slug, configuration.shortOrigin, { head: context.req.method === "HEAD" });
   const link = await getLink(context.env.DB, slug);
-  if (!link) return renderUnavailable(404);
-  if (link.status !== "active" || (link.expiresAt !== null && Date.parse(link.expiresAt) <= Date.now())) return renderUnavailable(410);
-  if (preview) return renderPreview(link, configuration.shortOrigin);
+  if (!link) return unavailable(context, 404);
+  if (link.status !== "active" || (link.expiresAt !== null && Date.parse(link.expiresAt) <= Date.now())) return unavailable(context, 410);
+  if (preview) return renderPreview(link, configuration.shortOrigin, (await readSettings(context)).displayName);
   context.header("Vary", "User-Agent");
   if (isPreviewCrawler(context.req.header("User-Agent") ?? "")
     && !await destinationHasPreviewImage(link.destination, [configuration.shortOrigin, configuration.adminOrigin, configuration.previewOrigin])) {
-    const response = renderPreview(link, configuration.shortOrigin);
+    const response = renderPreview(link, configuration.shortOrigin, (await readSettings(context)).displayName);
     response.headers.set("Vary", "User-Agent");
     return response;
   }
@@ -228,12 +255,13 @@ application.get("*", async (context) => {
 });
 
 application.notFound((context) => context.json({ error: "Not found." }, 404));
-application.onError((error, context) => {
+application.onError(async (error, context) => {
   if (error instanceof ApplicationError) return context.json({ error: error.message }, error.status);
   if (context.get("configuration")?.localDevelopment) console.error(error);
   console.error(JSON.stringify({ event: "request_failed", error: error instanceof z.ZodError ? "invalid_configuration_or_data" : "internal_error" }));
   if (context.req.path.startsWith("/api/")) return context.json({ error: "Temporarily unavailable. Please try again." }, 503);
-  return renderUnavailable(503);
+  const settings = await readSettings(context).catch(() => null);
+  return renderUnavailable(503, settings?.displayName);
 });
 
 // compile the fixed routes within the startup budget rather than the first request's CPU budget.

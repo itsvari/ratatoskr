@@ -13,6 +13,7 @@ import {
   PlusIcon,
   RotateCcwIcon,
   SearchIcon,
+  SettingsIcon,
   SunIcon,
   Trash2Icon,
   XIcon,
@@ -46,14 +47,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/class-names";
 import {
+  DEFAULT_DISPLAY_NAME,
   MAXIMUM_CUSTOM_SLUG_LENGTH,
   MAXIMUM_DESTINATION_LENGTH,
+  MAXIMUM_DISPLAY_NAME_LENGTH,
   MAXIMUM_TITLE_LENGTH,
   createLinkSchema,
+  linkExportFilename,
+  siteSettingsSchema,
   updateLinkSchema,
   type Link,
   type LinkStatus,
   type Session,
+  type SiteSettings,
   type UpdateLink,
 } from "../shared/contracts";
 import {
@@ -65,6 +71,7 @@ import {
   fetchLinks,
   fetchSession,
   isAbortError,
+  saveSiteSettings,
   updateLink,
 } from "./api";
 import { APPEARANCES, applyStoredAppearance, useAppearance, type Appearance } from "./appearance";
@@ -263,13 +270,17 @@ function useDebouncedValue<Value>(value: Value, delayMilliseconds: number): Valu
 
 function App(): ReactNode {
   const [sessionState, setSessionState] = useState<SessionState>({ kind: "loading" });
+  const [displayName, setDisplayName] = useState(document.documentElement.dataset.displayName ?? DEFAULT_DISPLAY_NAME);
   const [notice, setNotice] = useState<Notice | null>(null);
   const noticeCounter = useRef(0);
 
   const loadSession = useCallback((signal?: AbortSignal) => {
     setSessionState({ kind: "loading" });
     fetchSession(signal)
-      .then((session) => setSessionState({ kind: "ready", session }))
+      .then((session) => {
+        setDisplayName(session.displayName);
+        setSessionState({ kind: "ready", session });
+      })
       .catch((error: unknown) => {
         if (isAbortError(error)) return;
         if (error instanceof SessionExpiredError) {
@@ -279,6 +290,11 @@ function App(): ReactNode {
         setSessionState({ kind: "failed", message: messageFromError(error) });
       });
   }, []);
+
+  useEffect(() => {
+    document.title = displayName;
+    document.documentElement.dataset.displayName = displayName;
+  }, [displayName]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -318,17 +334,30 @@ function App(): ReactNode {
         Skip to content
       </a>
       {sessionState.kind === "ready" ? (
-        <Workspace session={sessionState.session} announce={announce} reportError={reportError} />
+        <Workspace
+          session={sessionState.session}
+          announce={announce}
+          reportError={reportError}
+          onSettingsSaved={(settings) => {
+            setDisplayName(settings.displayName);
+            setSessionState((current) => current.kind === "ready"
+              ? { kind: "ready", session: { ...current.session, ...settings } } : current);
+          }}
+        />
       ) : (
-        <SessionGate state={sessionState} onRetry={() => loadSession()} />
+        <SessionGate state={sessionState} displayName={displayName} onRetry={() => loadSession()} />
       )}
       <NoticeRegion notice={notice} onDismiss={() => setNotice(null)} />
     </>
   );
 }
 
-function Wordmark(): ReactNode {
-  return <span className="text-sm font-semibold tracking-tight">Ratatoskr</span>;
+function Wordmark({ name }: { readonly name: string }): ReactNode {
+  return (
+    <span className="min-w-0 truncate text-sm font-semibold tracking-tight" title={name}>
+      {name}
+    </span>
+  );
 }
 
 function AppearanceSelect(): ReactNode {
@@ -360,15 +389,17 @@ function AppearanceSelect(): ReactNode {
 
 function SessionGate({
   state,
+  displayName,
   onRetry,
 }: {
   readonly state: Exclude<SessionState, { readonly kind: "ready" }>;
+  readonly displayName: string;
   readonly onRetry: () => void;
 }): ReactNode {
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="flex h-14 items-center justify-between border-b px-4 sm:px-6">
-        <Wordmark />
+        <Wordmark name={displayName} />
         <AppearanceSelect />
       </header>
       <main id="main" className="flex flex-1 items-center justify-center p-6" aria-busy={state.kind === "loading"}>
@@ -462,10 +493,12 @@ function Workspace({
   session,
   announce,
   reportError,
+  onSettingsSaved,
 }: {
   readonly session: Session;
   readonly announce: Announce;
   readonly reportError: ReportError;
+  readonly onSettingsSaved: (settings: SiteSettings) => void;
 }): ReactNode {
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim(), SEARCH_DELAY_MILLISECONDS);
@@ -476,6 +509,7 @@ function Workspace({
   const [editingLink, setEditingLink] = useState<Link | null>(null);
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const loadMoreController = useRef<AbortController | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchId = useId();
@@ -628,7 +662,7 @@ function Workspace({
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = `ratatoskr-links-${new Date().toISOString().slice(0, 10)}.json`;
+      anchor.download = linkExportFilename(session.displayName, new Date().toISOString().slice(0, 10));
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
@@ -658,13 +692,17 @@ function Workspace({
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="mx-auto flex h-14 max-w-7xl items-center gap-3 px-4 sm:px-6">
-          <Wordmark />
-          <span className="hidden font-mono text-xs text-muted-foreground sm:inline">{shortHost}</span>
-          <div className="ml-auto flex items-center gap-2">
+          <Wordmark name={session.displayName} />
+          <span className="hidden max-w-40 truncate font-mono text-xs text-muted-foreground lg:inline">{shortHost}</span>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
             <span className="hidden max-w-56 truncate text-sm text-muted-foreground md:inline" title={session.email}>
               {session.email}
             </span>
             <AppearanceSelect />
+            <Button variant="outline" size="sm" aria-label="Settings" onClick={() => setSettingsOpen(true)}>
+              <SettingsIcon aria-hidden="true" />
+              <span className="hidden sm:inline">Settings</span>
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -753,6 +791,21 @@ function Workspace({
           onLoadMore={loadMore}
         />
       </main>
+
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        {settingsOpen ? (
+          <SettingsDialogContent
+            displayName={session.displayName}
+            onClose={() => setSettingsOpen(false)}
+            onSaved={(settings) => {
+              onSettingsSaved(settings);
+              setSettingsOpen(false);
+              announce({ tone: "success", message: "Saved site settings." });
+            }}
+            onSessionExpired={reportError}
+          />
+        ) : null}
+      </Dialog>
 
       <CreateDialog
         open={creating}
@@ -1188,6 +1241,90 @@ function busyGuards(busy: boolean): {
     if (busy) event.preventDefault();
   };
   return { showCloseButton: !busy, onEscapeKeyDown: guard, onInteractOutside: guard };
+}
+
+function SettingsDialogContent({
+  displayName,
+  onClose,
+  onSaved,
+  onSessionExpired,
+}: {
+  readonly displayName: string;
+  readonly onClose: () => void;
+  readonly onSaved: (settings: SiteSettings) => void;
+  readonly onSessionExpired: ReportError;
+}): ReactNode {
+  const [name, setName] = useState(displayName);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const fieldId = useId();
+  const errorId = `${fieldId}-error`;
+
+  const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    if (submitting) return;
+    setFormError(null);
+    const parsed = siteSettingsSchema.safeParse({ displayName: name });
+    if (!parsed.success) {
+      setFormError(describeValidationError(parsed.error));
+      return;
+    }
+    setSubmitting(true);
+    try {
+      onSaved(await saveSiteSettings(parsed.data));
+    } catch (error) {
+      if (error instanceof SessionExpiredError) {
+        onSessionExpired(error);
+        return;
+      }
+      setFormError(messageFromError(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <DialogContent {...busyGuards(submitting)} aria-describedby={`${fieldId}-description`}>
+      <form className="grid gap-4" onSubmit={(event) => void submit(event)} noValidate>
+        <DialogHeader>
+          <DialogTitle>Site settings</DialogTitle>
+          <DialogDescription id={`${fieldId}-description`}>
+            Choose the name shown across your shortlink site.
+          </DialogDescription>
+        </DialogHeader>
+        <Field id={fieldId} label="Display name" hint="Shown in the admin panel, public pages and link previews.">
+          <Input
+            id={fieldId}
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+              setFormError(null);
+            }}
+            maxLength={MAXIMUM_DISPLAY_NAME_LENGTH}
+            aria-describedby={`${fieldId}-hint`}
+            autoComplete="off"
+            autoFocus
+            disabled={submitting}
+          />
+        </Field>
+        <FormError id={errorId} message={formError} />
+        <DialogFooter>
+          <Button type="button" variant="ghost" className="sm:mr-auto" disabled={submitting} onClick={() => {
+            setName(DEFAULT_DISPLAY_NAME);
+            setFormError(null);
+          }}>
+            Use default
+          </Button>
+          <Button type="button" variant="outline" disabled={submitting} onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={submitting} aria-busy={submitting}>
+            {submitting ? "Saving…" : "Save changes"}
+          </Button>
+        </DialogFooter>
+      </form>
+    </DialogContent>
+  );
 }
 
 function CreateDialog({

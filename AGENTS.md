@@ -29,4 +29,6 @@ After publication, run `bun run verify:deployment` and check the real authentica
 
 `shared/contracts.ts` defines API data shapes. `src/links.ts` owns SQL and link invariants. `src/auth.ts` owns Access validation. `src/index.ts` owns host and HTTP routing. `admin/` owns UI behaviour. `scripts/` owns setup, deployment and repeatable verification.
 
+`src/settings.ts` owns shared site settings and their atomic audit records. Display names are plain text; escape them in HTML and SVG. Normal redirects must not load site settings.
+
 Generated deployment files, credentials, local state and build output remain ignored. Add schema changes as numbered SQL files in `migrations/`.

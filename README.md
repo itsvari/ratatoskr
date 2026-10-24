@@ -45,6 +45,12 @@ Read [DEPLOY.md](DEPLOY.md) for account permissions, configuration, recovery, ba
 
 The interface defaults to pure-black dark mode, with saved Light and System options. It uses shadcn/ui, Inter and JetBrains Mono, all served from the same deployment.
 
+## Customise your site
+
+Open **Settings** in the admin panel, enter a **Display name**, and select **Save changes**. The shared name appears in the admin header and browser title, public pages, link preview metadata, generated social images and export filenames. Names can contain up to 48 characters and must be a non-empty single line. **Use default** fills in “Ratatoskr”; save to apply it.
+
+The setting is stored in D1 and applies to new requests immediately, without rebuilding or redeploying. Existing deployments need migration `0002_site_settings.sql`, which the deployment script applies automatically. Already open admin panels pick up another administrator's changes on reload; sharing services may retain images they fetched earlier.
+
 ## Verify changes
 
 ```sh
@@ -78,6 +84,7 @@ The renderer uses native fast PNG compression and a bounded in-isolate cache of 
 - `src/index.ts`: host routing, HTTP validation and security headers.
 - `src/auth.ts`: Access JWT and mutation-origin checks.
 - `src/links.ts`: D1 operations and atomic audit records.
+- `src/settings.ts`: shared display name and atomic settings audit records.
 - `src/slugs.ts`: generation and screening.
 - `src/preview.ts`, `src/preview-image.ts`, `src/social-preview.ts`: stored-data previews, PNG templates and bounded crawler metadata checks.
 - `admin/`: React, shadcn components and appearance settings.
