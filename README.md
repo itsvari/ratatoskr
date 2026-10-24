@@ -4,7 +4,9 @@ A private link shortener that runs on Cloudflare Workers, D1 and Workers Static 
 
 ## Run locally
 
-Use Node 22.18 or later and Bun 1.4 or later.
+Use Bun 1.4.4 or later and patched Node.js 22.23.4, 24.22.1 or 26.12.1 (or a newer supported release). `.bun-version` and `.node-version` pin the current development versions. Install, development, build and verification commands check these security minimums.
+
+Bun 1.4.4 and the [October 2026 Node.js releases](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases) include the Brotli RCE fix (CVE-2026-111497) and updated certificate trust. Upgrade the runtimes themselves before installing packages; changing the lockfile does not patch an installed runtime. See the [Bun release notes](https://bun.sh/blog/bun-v1.4.4).
 
 ```sh
 bun install --frozen-lockfile
@@ -46,10 +48,13 @@ The interface defaults to pure-black dark mode, with saved Light and System opti
 
 ```sh
 bun run verify
+bun audit
 bun run verify:deployment
 ```
 
 The tests run in the Workers runtime with real local D1. They cover concurrent claims, transaction rollback, deletion races, revocation, expiry, previews, Access signatures, origin checks and slug screening. Production sign-in still needs a browser check.
+
+The lockfile refreshes direct and transitive packages. Security overrides keep Cloudflare tooling's Undici on the patched 7.x line and Zod on 4.6.7 or later until their upstream pins catch up. Recheck `bun audit` when updating dependencies.
 
 ## Operating limits
 
