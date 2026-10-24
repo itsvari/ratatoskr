@@ -6,6 +6,8 @@ import { loadConfiguration, type Bindings, type Configuration } from "./configur
 import { ApplicationError } from "./errors";
 import { createLink, deleteLink, exportLinks, getLink, listLinks, updateLink } from "./links";
 import { renderHome, renderPreview, renderUnavailable } from "./preview";
+import { renderPreviewImage } from "./preview-image";
+import { destinationHasPreviewImage, isPreviewCrawler } from "./social-preview";
 import { parseCustomSlug } from "./slugs";
 
 const MAXIMUM_REQUEST_BYTES = 8192;
@@ -76,15 +78,19 @@ function isLocalAssetPath(pathname: string): boolean {
 }
 
 application.use("*", async (context, next) => {
+  await next();
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) context.header(name, value);
   context.header("Cache-Control", "no-store");
-  const configuration = loadConfiguration(context.env);
-  context.set("configuration", configuration);
-  if (configuration.localDevelopment) {
+  if (context.get("configuration")?.localDevelopment) {
     context.header("Content-Security-Policy", SECURITY_HEADERS["Content-Security-Policy"]
       .replace("script-src 'self'", "script-src 'self' 'unsafe-inline'")
       .replace("connect-src 'self'", "connect-src 'self' ws://localhost:* ws://127.0.0.1:*"));
   }
+});
+
+application.use("*", async (context, next) => {
+  const configuration = loadConfiguration(context.env);
+  context.set("configuration", configuration);
   const url = new URL(context.req.url);
   if (![configuration.shortOrigin, configuration.adminOrigin, configuration.previewOrigin].includes(url.origin)) {
     return renderUnavailable(404);
@@ -190,14 +196,23 @@ application.get("*", async (context) => {
     if (url.origin !== configuration.shortOrigin) return renderUnavailable(404);
     return renderHome(separateAdmin ? configuration.adminOrigin : `${configuration.adminOrigin}/admin/`);
   }
-  const requestedSlug = url.pathname.slice(1);
+  const imageSlug = /^\/_preview\/([a-z0-9-]+)\.png$/.exec(url.pathname)?.[1];
+  const requestedSlug = imageSlug ?? url.pathname.slice(1);
   const preview = url.origin === configuration.previewOrigin || requestedSlug.endsWith("+");
   const slug = parseCustomSlug(requestedSlug.endsWith("+") ? requestedSlug.slice(0, -1) : requestedSlug);
   if (!slug) return renderUnavailable(404);
   const link = await getLink(context.env.DB, slug);
   if (!link) return renderUnavailable(404);
   if (link.status !== "active" || (link.expiresAt !== null && Date.parse(link.expiresAt) <= Date.now())) return renderUnavailable(410);
-  if (preview) return renderPreview(link);
+  if (imageSlug) return renderPreviewImage(link, configuration.shortOrigin);
+  if (preview) return renderPreview(link, configuration.shortOrigin);
+  context.header("Vary", "User-Agent");
+  if (isPreviewCrawler(context.req.header("User-Agent") ?? "")
+    && !await destinationHasPreviewImage(link.destination, [configuration.shortOrigin, configuration.adminOrigin, configuration.previewOrigin])) {
+    const response = renderPreview(link, configuration.shortOrigin);
+    response.headers.set("Vary", "User-Agent");
+    return response;
+  }
   return context.redirect(link.destination, 302);
 });
 

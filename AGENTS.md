@@ -11,7 +11,7 @@ Use British English, strict TypeScript and 2-space indentation. Use descriptive 
 - D1 primary reads determine redirects and previews. Do not add KV, replica reads or redirect caches without changing the revocation contract.
 - Slug claims and audit writes are atomic. Deleted slugs remain reserved and contain no destination.
 - Generation is screened across complete strings and grows beyond six characters after bounded collision retries. Keep the resource bounds and screening caveat.
-- Previews do not fetch destinations, metadata or favicons.
+- Explicit previews and generated images use only stored data. Only recognised social crawlers visiting plain shortlinks probe destination HTML for image metadata. Preserve the time, byte and redirect bounds; never forward visitor credentials or fetch favicons or destination images.
 - No per-click database writes or raw destination URLs in production logs.
 - Fonts are self-hosted. The admin uses shadcn/ui, Inter, JetBrains Mono, purple accents and pure-black dark mode by default.
 
