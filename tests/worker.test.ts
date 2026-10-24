@@ -83,6 +83,16 @@ describe("Worker request flow", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
+  it("preserves crawler redirects when destination metadata is in an implicit head", async () => {
+    await create("notes");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response('<!doctype html><html><meta charset="utf-8"><title>Article</title><meta property="og:image" content="https://example.com/cover.png"><body>Article</body></html>', {
+      headers: { "Content-Type": "text/html" },
+    })));
+    const response = await SELF.fetch(`${ORIGIN}/notes`, { headers: { "User-Agent": "Discordbot" }, redirect: "manual" });
+    expect(response.status).toBe(302);
+    expect(response.headers.get("Location")).toBe(DESTINATION);
+  });
+
   it("serves real PNGs from stored data and never fetches destinations for explicit previews or images", async () => {
     await create("notes");
     const outbound = vi.fn();
@@ -95,8 +105,8 @@ describe("Worker request flow", () => {
     const png = new Uint8Array(await response.arrayBuffer());
     expect(Array.from(png.slice(0, 8))).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
     const header = new DataView(png.buffer);
-    expect(header.getUint32(16)).toBe(1200);
-    expect(header.getUint32(20)).toBe(630);
+    expect(header.getUint32(16)).toBe(600);
+    expect(header.getUint32(20)).toBe(315);
     const head = await SELF.fetch(`${ORIGIN}/_preview/notes.png`, { method: "HEAD" });
     expect(head.status).toBe(200);
     expect(head.headers.get("Content-Type")).toBe("image/png");

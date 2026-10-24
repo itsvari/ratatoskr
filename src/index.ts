@@ -204,6 +204,7 @@ application.get("*", async (context) => {
   const link = await getLink(context.env.DB, slug);
   if (!link) return renderUnavailable(404);
   if (link.status !== "active" || (link.expiresAt !== null && Date.parse(link.expiresAt) <= Date.now())) return renderUnavailable(410);
+  if (imageSlug && context.req.method === "HEAD") return context.body(null, 200, { "Content-Type": "image/png", "X-Robots-Tag": "noindex" });
   if (imageSlug) return renderPreviewImage(link, configuration.shortOrigin);
   if (preview) return renderPreview(link, configuration.shortOrigin);
   context.header("Vary", "User-Agent");

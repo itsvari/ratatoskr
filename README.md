@@ -65,11 +65,13 @@ Private creation, Access and application rate limits reduce abuse. Worker rate l
 
 Generated-slug screening checks substrings and coarse phonetic variants across syllable boundaries. The blocklist covers English and selected common romanisations. It deliberately rejects some benign candidates and cannot guarantee neutrality in every language. Custom slugs are administrator-chosen.
 
-Explicit destination previews display the stored URL without fetching external content. They include Open Graph and Twitter metadata pointing to a 1200 × 630 PNG at `/_preview/slug.png`, generated from the stored title, destination hostname and shortlink using the preview page's black and purple styling. The font and renderer are bundled with the Worker; image generation uses no external services.
+Explicit destination previews display the stored URL without fetching external content. They include Open Graph and Twitter metadata pointing to a 600 × 315 PNG at `/_preview/slug.png`, generated from the stored title, destination hostname and shortlink using the preview page's black and purple styling. The font and renderer are bundled with the Worker; image generation uses no external services.
 
 On plain shortlinks, recognised sharing crawlers check the destination's HTML for a non-empty HTTP(S) Open Graph or Twitter image address. The check uses no visitor credentials, takes at most two seconds, reads at most 64 KiB and follows at most three redirects. IP literals, local/internal names, non-standard ports and the shortener's own hosts are skipped. Missing metadata, errors and timeouts select the generated card. Destination images are not downloaded or verified. Other user agents continue to receive the usual redirect.
 
 Preview pages and images read current link data from primary D1 and use `no-store`, so edits, expiry, revocation and deletion apply to new requests. Sharing services can retain cards they have already fetched. Previews do not verify a destination's safety or any later redirects.
+
+The renderer uses native fast PNG compression and a bounded in-isolate cache of derived images (eight entries, at most 512 KiB). Image requests still validate primary D1 before consulting it; its key includes the current link data and rendered template. HEAD requests validate availability without rasterising. This does not cache redirects or link availability. See [local performance measurements and remaining Workers Free limitations](docs/preview-performance.md) before deployment.
 
 ## Source map
 

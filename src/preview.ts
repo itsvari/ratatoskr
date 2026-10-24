@@ -1,4 +1,5 @@
 import type { Link } from "../shared/contracts";
+import { PREVIEW_IMAGE_HEIGHT, PREVIEW_IMAGE_WIDTH } from "./preview-dimensions";
 
 export function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (character) => {
@@ -24,7 +25,7 @@ export function renderPreview(link: Link, shortOrigin: string): Response {
   const title = link.title || destination.hostname;
   const imageUrl = `${shortOrigin}/_preview/${link.slug}.png`;
   const description = `This shortlink points to ${destination.hostname}.`;
-  const metadata = `<meta property="og:type" content="website"><meta property="og:site_name" content="Ratatoskr"><meta property="og:title" content="${escapeHtml(title)}"><meta property="og:description" content="${escapeHtml(description)}"><meta property="og:url" content="${escapeHtml(`${shortOrigin}/${link.slug}`)}"><meta property="og:image" content="${escapeHtml(imageUrl)}"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="${escapeHtml(description)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${escapeHtml(title)}"><meta name="twitter:description" content="${escapeHtml(description)}"><meta name="twitter:image" content="${escapeHtml(imageUrl)}"><meta name="twitter:image:alt" content="${escapeHtml(description)}">`;
+  const metadata = `<meta property="og:type" content="website"><meta property="og:site_name" content="Ratatoskr"><meta property="og:title" content="${escapeHtml(title)}"><meta property="og:description" content="${escapeHtml(description)}"><meta property="og:url" content="${escapeHtml(`${shortOrigin}/${link.slug}`)}"><meta property="og:image" content="${escapeHtml(imageUrl)}"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="${PREVIEW_IMAGE_WIDTH}"><meta property="og:image:height" content="${PREVIEW_IMAGE_HEIGHT}"><meta property="og:image:alt" content="${escapeHtml(description)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${escapeHtml(title)}"><meta name="twitter:description" content="${escapeHtml(description)}"><meta name="twitter:image" content="${escapeHtml(imageUrl)}"><meta name="twitter:image:alt" content="${escapeHtml(description)}">`;
   return new Response(document("Destination preview", `<h1>${escapeHtml(title)}</h1><p>This shortlink points to <strong>${escapeHtml(destination.hostname)}</strong>.</p><code>${escapeHtml(link.destination)}</code><a class="button" href="${escapeHtml(link.destination)}" rel="noopener noreferrer nofollow">Continue to destination</a><p>This preview shows the stored address. It does not verify the website's safety or any further redirects.</p>`, metadata), {
     headers: { "Content-Type": "text/html; charset=utf-8", "X-Robots-Tag": "noindex, nofollow", "Cache-Control": "no-store" },
   });
