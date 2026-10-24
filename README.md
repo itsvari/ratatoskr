@@ -51,6 +51,8 @@ Open **Settings** in the admin panel, enter a **Display name**, and select **Sav
 
 The setting is stored in D1 and applies to new requests immediately, without rebuilding or redeploying. Existing deployments need migration `0002_site_settings.sql`, which the deployment script applies automatically. Already open admin panels pick up another administrator's changes on reload; sharing services may retain images they fetched earlier.
 
+Generated cards bundle Inter, Arabic shaping fonts and paged CJK fallbacks. Chinese, Arabic, mixed-script names and Arabic diacritics use local font data; no external font or rendering service is used. Accepted names are unchanged. The bundled collection is not universal Unicode/colour-emoji coverage; additional scripts may need another bundled font. Font sources and regeneration are documented in [src/assets/README.md](src/assets/README.md), and bundle, memory and CPU observations are in [the performance report](docs/preview-performance.md).
+
 ## Verify changes
 
 ```sh

@@ -1,14 +1,8 @@
-import { initWasm, Resvg } from "@resvg/resvg-wasm";
-import rendererModule from "@resvg/resvg-wasm/index_bg.wasm";
+import type { Resvg } from "@resvg/resvg-wasm";
 import font from "./assets/inter.ttf.bin";
-
-// Keep initialisation separate from the template so Vite can hot-reload its design.
-let rendererReady: Promise<void> | undefined;
+import { fallbackFontsForText } from "./assets/fallback-fonts";
+import { createSvgRenderer } from "./preview-wasm";
 
 export async function createPreviewRenderer(svg: string): Promise<InstanceType<typeof Resvg>> {
-  rendererReady ??= initWasm(rendererModule);
-  await rendererReady;
-  return new Resvg(svg, {
-    font: { fontBuffers: [new Uint8Array(font)], defaultFontFamily: "Inter" },
-  });
+  return createSvgRenderer(svg, [font, ...fallbackFontsForText(svg)].map((buffer) => new Uint8Array(buffer)));
 }
