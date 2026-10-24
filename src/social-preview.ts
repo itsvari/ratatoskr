@@ -30,7 +30,6 @@ async function readMetadata(response: Response): Promise<string> {
       const bytes = chunk.value.subarray(0, MAXIMUM_METADATA_BYTES - bytesRead);
       html += decoder.decode(bytes, { stream: true });
       bytesRead += bytes.byteLength;
-      if (/<\/head\s*>/i.test(html)) break;
     }
     return html + decoder.decode();
   } finally {
@@ -64,7 +63,9 @@ export async function destinationHasPreviewImage(destination: string, excludedOr
       const html = await readMetadata(response);
       let hasImage = false;
       const pageUrl = url;
-      await new HTMLRewriter().on("head meta", {
+      // HTMLRewriter matches source elements, including meta tags in an implicit head.
+      // Parse the bounded prefix rather than guessing tag boundaries in raw HTML text.
+      await new HTMLRewriter().on("meta", {
         element(element) {
           const property = (element.getAttribute("property") ?? element.getAttribute("name") ?? "").toLowerCase();
           const content = element.getAttribute("content")?.trim();

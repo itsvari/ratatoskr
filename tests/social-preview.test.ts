@@ -32,6 +32,31 @@ describe("Social preview detection", () => {
     expect(await destinationHasPreviewImage(DESTINATION, [])).toBe(true);
   });
 
+  it("recognises metadata when HTML omits the optional head start tag", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response('<!doctype html><html><meta charset="utf-8"><title>Article</title><meta property="og:image" content="https://example.com/cover.png"><body>Article</body></html>', {
+      headers: { "Content-Type": "text/html" },
+    })));
+    expect(await destinationHasPreviewImage(DESTINATION, [])).toBe(true);
+  });
+
+  it.each([
+    '<html><head><script>const example = "</head>";</script>',
+    '<html><head><!-- A literal </head> in a comment -->',
+    '<html><head><script>const example = "</he',
+  ])("continues across response chunks containing literal closing-head text: %s", async (firstChunk) => {
+    const chunks = [firstChunk, ...(firstChunk.endsWith('</he') ? ['ad>";</script>'] : []),
+      '<meta property="og:image" content="/cover.png"></head><body>Article</body></html>'];
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        const chunk = chunks.shift();
+        if (chunk === undefined) controller.close();
+        else controller.enqueue(new TextEncoder().encode(chunk));
+      },
+    });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { headers: { "Content-Type": "text/html" } })));
+    expect(await destinationHasPreviewImage(DESTINATION, [])).toBe(true);
+  });
+
   it.each([
     '<meta property="og:title" content="Title only">',
     '<meta property="og:image" content="  ">',
