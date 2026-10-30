@@ -1,8 +1,29 @@
 import { z } from "zod";
+import { previewSegmentSchema } from "./preview-image";
 
 export const MAXIMUM_TITLE_LENGTH = 120;
 export const MAXIMUM_DESTINATION_LENGTH = 4096;
 export const MAXIMUM_CUSTOM_SLUG_LENGTH = 48;
+export const DEFAULT_DISPLAY_NAME = "Ratatoskr";
+export const MAXIMUM_DISPLAY_NAME_LENGTH = 48;
+
+export const siteSettingsSchema = z.object({
+  displayName: z.string().trim().min(1, "Enter a display name.").max(MAXIMUM_DISPLAY_NAME_LENGTH)
+    .regex(/^[^\p{Cc}\p{Cs}\p{Zl}\p{Zp}\uFFFE\uFFFF]+$/u, "Use a single line without control or invalid Unicode characters."),
+}).strict();
+
+export const updateSiteSettingsSchema = siteSettingsSchema.extend({ previewHeader: previewSegmentSchema.optional() })
+  .refine((settings) => settings.displayName === DEFAULT_DISPLAY_NAME || settings.previewHeader !== undefined,
+    "Generate the preview branding before saving the display name.");
+export type UpdateSiteSettings = z.infer<typeof updateSiteSettingsSchema>;
+
+export type SiteSettings = z.infer<typeof siteSettingsSchema>;
+
+export function linkExportFilename(displayName: string, date?: string): string {
+  const prefix = displayName.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `${prefix ? `${prefix}-` : ""}links${date ? `-${date}` : ""}.json`;
+}
 
 export const linkStatusSchema = z.enum(["active", "revoked"]);
 
@@ -48,6 +69,7 @@ export const sessionSchema = z.object({
   shortOrigin: z.string(),
   previewOrigin: z.string().nullable(),
   adminOrigin: z.string(),
+  displayName: siteSettingsSchema.shape.displayName,
 });
 
 export type Session = z.infer<typeof sessionSchema>;

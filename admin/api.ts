@@ -4,12 +4,14 @@ import {
   linkPageSchema,
   linkSchema,
   sessionSchema,
+  siteSettingsSchema,
   type CreateLink,
   type Link,
   type LinkPage,
   type LinkStatus,
   type Session,
   type UpdateLink,
+  type SiteSettings,
 } from "../shared/contracts";
 
 export class SessionExpiredError extends Error {
@@ -94,6 +96,12 @@ function linkPath(slug: string): string {
 export async function fetchSession(signal?: AbortSignal): Promise<Session> {
   const response = await request("/api/session", signal === undefined ? {} : { signal });
   return readJson(response, sessionSchema);
+}
+
+export async function saveSiteSettings(body: SiteSettings): Promise<SiteSettings> {
+  const { generatePreviewHeader } = await import("./preview-image");
+  const previewHeader = await generatePreviewHeader(body.displayName);
+  return readJson(await request("/api/settings", { method: "PATCH", body: { ...body, previewHeader } }), siteSettingsSchema);
 }
 
 export async function fetchLinks({

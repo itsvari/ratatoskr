@@ -1,6 +1,7 @@
-import type { Link } from "../shared/contracts";
+import { DEFAULT_DISPLAY_NAME, type Link } from "../shared/contracts";
 import { escapeHtml } from "./preview";
 import { PREVIEW_IMAGE_HEIGHT, PREVIEW_IMAGE_WIDTH } from "./preview-dimensions";
+import { renderPreviewText } from "./preview-text";
 
 function shorten(value: string, maximumLength: number): string {
   const characters = Array.from(value.replace(/[\u0000-\u001f\u007f]/g, " "));
@@ -28,7 +29,7 @@ function titleLines(value: string): readonly string[] {
   return lines;
 }
 
-export function renderPreviewSvg(link: Link, shortOrigin: string): string {
+export function renderPreviewSvg(link: Link, shortOrigin: string, displayName = DEFAULT_DISPLAY_NAME): string {
   const destination = new URL(link.destination);
   const title = shorten(link.title || destination.hostname, 120);
   const shortlink = `${new URL(shortOrigin).host}/${link.slug}`;
@@ -37,8 +38,8 @@ export function renderPreviewSvg(link: Link, shortOrigin: string): string {
     <rect x="32" y="32" width="1136" height="566" rx="24" fill="#0c0c0c" stroke="#303030" stroke-width="2"/>
     <rect x="72" y="80" width="8" height="32" rx="4" fill="#8b5cf6"/>
     <g font-family="Inter" fill="#eee">
-      <text x="100" y="106" font-size="28" font-weight="600" fill="#a78bfa">Ratatoskr</text>
-      ${titleLines(title).map((line, index) => `<text x="72" y="${202 + index * 52}" font-size="44" font-weight="700">${escapeHtml(line)}</text>`).join("")}
+      ${renderPreviewText(displayName, { x: 100, y: 106, fontSize: 28, maximumWidth: 1028, fontWeight: 600, fill: "#a78bfa" })}
+      ${titleLines(title).map((line, index) => renderPreviewText(line, { x: 72, y: 202 + index * 52, fontSize: 44, maximumWidth: 1056, fontWeight: 700 })).join("")}
       <text x="72" y="366" font-size="24" fill="#aaa">This shortlink points to</text>
       <rect x="72" y="390" width="1056" height="80" rx="10" fill="#141414" stroke="#303030"/>
       <text x="96" y="441" font-size="24">${escapeHtml(shorten(destination.host, 40))}</text>
