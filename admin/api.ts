@@ -126,6 +126,14 @@ export async function updateLink({ slug, changes }: { readonly slug: string; rea
   return readJson(response, linkSchema);
 }
 
+export async function saveLinkPreview(link: Link): Promise<void> {
+  const session = await fetchSession();
+  const { generateLinkPreview } = await import("./preview-image");
+  const segment = await generateLinkPreview(link, session.shortOrigin);
+  await request(`${linkPath(link.slug)}/image`, { method: "POST",
+    body: { title: link.title, destination: link.destination, origin: session.shortOrigin, segment } });
+}
+
 export async function deleteLink(slug: string): Promise<void> {
   await request(linkPath(slug), { method: "DELETE" });
 }

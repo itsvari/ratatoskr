@@ -1,3 +1,4 @@
+import { env as environment } from "cloudflare:workers";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createLinkSchema, linkStatusSchema, updateLinkSchema } from "../shared/contracts";
@@ -6,6 +7,9 @@ import { loadConfiguration, type Bindings, type Configuration } from "./configur
 import { ApplicationError } from "./errors";
 import { createLink, deleteLink, exportLinks, getLink, listLinks, updateLink } from "./links";
 import { renderHome, renderPreview, renderUnavailable } from "./preview";
+import { previewUploadSchema, MAXIMUM_PREVIEW_UPLOAD_BYTES } from "../shared/preview-image";
+import { renderPreviewImage, storePreviewImage } from "./preview-image";
+import { destinationHasPreviewImage, isPreviewCrawler } from "./social-preview";
 import { parseCustomSlug } from "./slugs";
 
 const MAXIMUM_REQUEST_BYTES = 8192;
@@ -15,7 +19,7 @@ const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "no-referrer",
   "X-Frame-Options": "DENY",
-  "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+  "Content-Security-Policy": "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
 };
 
@@ -26,7 +30,7 @@ interface RequestVariables {
 
 const application = new Hono<{ Bindings: Bindings; Variables: RequestVariables }>();
 
-async function parseBody<Schema extends z.ZodType>(request: Request, schema: Schema): Promise<z.output<Schema>> {
+async function parseBody<Schema extends z.ZodType>(request: Request, schema: Schema, maximumBytes = MAXIMUM_REQUEST_BYTES): Promise<z.output<Schema>> {
   if (request.headers.get("Content-Type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") {
     throw new ApplicationError("Send the request as application/json.", 415);
   }
@@ -40,7 +44,7 @@ async function parseBody<Schema extends z.ZodType>(request: Request, schema: Sch
     const result = await reader.read();
     if (result.done) break;
     receivedBytes += result.value.byteLength;
-    if (receivedBytes > MAXIMUM_REQUEST_BYTES) {
+    if (receivedBytes > maximumBytes) {
       await reader.cancel();
       throw new ApplicationError("Request body is too large.", 413);
     }
@@ -76,15 +80,19 @@ function isLocalAssetPath(pathname: string): boolean {
 }
 
 application.use("*", async (context, next) => {
+  await next();
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) context.header(name, value);
   context.header("Cache-Control", "no-store");
-  const configuration = loadConfiguration(context.env);
-  context.set("configuration", configuration);
-  if (configuration.localDevelopment) {
+  if (context.get("configuration")?.localDevelopment) {
     context.header("Content-Security-Policy", SECURITY_HEADERS["Content-Security-Policy"]
       .replace("script-src 'self'", "script-src 'self' 'unsafe-inline'")
       .replace("connect-src 'self'", "connect-src 'self' ws://localhost:* ws://127.0.0.1:*"));
   }
+});
+
+application.use("*", async (context, next) => {
+  const configuration = loadConfiguration(context.env);
+  context.set("configuration", configuration);
   const url = new URL(context.req.url);
   if (![configuration.shortOrigin, configuration.adminOrigin, configuration.previewOrigin].includes(url.origin)) {
     return renderUnavailable(404);
@@ -158,6 +166,15 @@ application.patch("/api/links/:slug", async (context) => {
     administrator: context.get("administrator"), slug, patch }));
 });
 
+application.post("/api/links/:slug/image", async (context) => {
+  const slug = parseCustomSlug(context.req.param("slug"));
+  if (!slug) throw new ApplicationError("Invalid shortlink.", 400);
+  const upload = await parseBody(context.req.raw, previewUploadSchema, MAXIMUM_PREVIEW_UPLOAD_BYTES);
+  if (upload.origin !== context.get("configuration").shortOrigin) throw new ApplicationError("The image origin changed. Reload the admin panel.", 409);
+  await storePreviewImage(context.env.DB, slug, upload);
+  return context.body(null, 204);
+});
+
 application.delete("/api/links/:slug", async (context) => {
   const slug = parseCustomSlug(context.req.param("slug"));
   if (!slug) throw new ApplicationError("Invalid shortlink.", 400);
@@ -190,14 +207,23 @@ application.get("*", async (context) => {
     if (url.origin !== configuration.shortOrigin) return renderUnavailable(404);
     return renderHome(separateAdmin ? configuration.adminOrigin : `${configuration.adminOrigin}/admin/`);
   }
-  const requestedSlug = url.pathname.slice(1);
+  const imageSlug = /^\/_preview\/([a-z0-9-]+)\.png$/.exec(url.pathname)?.[1];
+  const requestedSlug = imageSlug ?? url.pathname.slice(1);
   const preview = url.origin === configuration.previewOrigin || requestedSlug.endsWith("+");
   const slug = parseCustomSlug(requestedSlug.endsWith("+") ? requestedSlug.slice(0, -1) : requestedSlug);
   if (!slug) return renderUnavailable(404);
+  if (imageSlug) return renderPreviewImage(context.env.DB, slug, configuration.shortOrigin, { head: context.req.method === "HEAD" });
   const link = await getLink(context.env.DB, slug);
   if (!link) return renderUnavailable(404);
   if (link.status !== "active" || (link.expiresAt !== null && Date.parse(link.expiresAt) <= Date.now())) return renderUnavailable(410);
-  if (preview) return renderPreview(link);
+  if (preview) return renderPreview(link, configuration.shortOrigin);
+  context.header("Vary", "User-Agent");
+  if (isPreviewCrawler(context.req.header("User-Agent") ?? "")
+    && !await destinationHasPreviewImage(link.destination, [configuration.shortOrigin, configuration.adminOrigin, configuration.previewOrigin])) {
+    const response = renderPreview(link, configuration.shortOrigin);
+    response.headers.set("Vary", "User-Agent");
+    return response;
+  }
   return context.redirect(link.destination, 302);
 });
 
@@ -209,5 +235,10 @@ application.onError((error, context) => {
   if (context.req.path.startsWith("/api/")) return context.json({ error: "Temporarily unavailable. Please try again." }, 503);
   return renderUnavailable(503);
 });
+
+// compile the fixed routes within the startup budget rather than the first request's CPU budget.
+application.router.match("GET", "/_health");
+// validate the deployment at startup; requests still validate their current bindings after updates.
+loadConfiguration(environment);
 
 export default { fetch: application.fetch } satisfies ExportedHandler<Bindings>;
