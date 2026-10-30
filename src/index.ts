@@ -1,3 +1,4 @@
+import { env as environment } from "cloudflare:workers";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createLinkSchema, linkStatusSchema, updateLinkSchema } from "../shared/contracts";
@@ -237,5 +238,6 @@ application.onError((error, context) => {
 
 // compile the fixed routes within the startup budget rather than the first request's CPU budget.
 application.router.match("GET", "/_health");
+loadConfiguration(environment);
 
 export default { fetch: application.fetch } satisfies ExportedHandler<Bindings>;
