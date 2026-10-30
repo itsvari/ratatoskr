@@ -1,6 +1,10 @@
 import { env, SELF } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { linkSchema, sessionSchema } from "../shared/contracts";
+import { storePreviewImage } from "../src/preview-image";
+import { compressPreviewSection } from "../shared/preview-compression";
+import { PREVIEW_IMAGE_WIDTH, PREVIEW_IMAGE_HEIGHT, PREVIEW_HEADER_HEIGHT } from "../shared/preview-image";
+import type { Link } from "../shared/contracts";
 import worker from "../src/index";
 import { createExecutionContext } from "cloudflare:test";
 
@@ -9,7 +13,7 @@ const DESTINATION = "https://example.com/notes?source=original";
 
 beforeEach(async () => {
   await env.DB.batch([
-    env.DB.prepare("DELETE FROM audit_events"), env.DB.prepare("DELETE FROM links"),
+    env.DB.prepare("DELETE FROM preview_images"), env.DB.prepare("DELETE FROM audit_events"), env.DB.prepare("DELETE FROM links"),
     env.DB.prepare("DELETE FROM administrators"),
     env.DB.prepare("UPDATE settings SET value = 3 WHERE name = 'generated_syllables'"),
   ]);
@@ -23,7 +27,15 @@ async function create(slug: string) {
     body: JSON.stringify({ slug, destination: DESTINATION, title: 'Notes <script>alert("unsafe")</script>' }),
   });
   expect(response.status).toBe(201);
-  return linkSchema.parse(await response.json());
+  const link = linkSchema.parse(await response.json());
+  await uploadImage(link);
+  return link;
+}
+
+async function uploadImage(link: Link): Promise<void> {
+  const pixels = new Uint8Array(PREVIEW_IMAGE_WIDTH * PREVIEW_IMAGE_HEIGHT * 4).fill(link.title.length);
+  await storePreviewImage(env.DB, link.slug, { title: link.title, destination: link.destination,
+    origin: ORIGIN, segment: compressPreviewSection(pixels, PREVIEW_HEADER_HEIGHT, PREVIEW_IMAGE_HEIGHT) });
 }
 
 describe("Worker request flow", () => {
@@ -118,6 +130,10 @@ describe("Worker request flow", () => {
     await create("notes");
     const original = await (await SELF.fetch(`${ORIGIN}/_preview/notes.png`)).arrayBuffer();
     await env.DB.prepare("UPDATE links SET title = 'Changed title' WHERE slug = 'notes'").run();
+    expect((await SELF.fetch(`${ORIGIN}/_preview/notes.png`)).status).toBe(503);
+    await uploadImage({ ...linkSchema.parse(await (await SELF.fetch(`${ORIGIN}/api/links/notes`, {
+      method: "PATCH", headers: { "Content-Type": "application/json", Origin: ORIGIN }, body: JSON.stringify({ title: "Changed title" }),
+    })).json()), title: "Changed title" });
     const edited = await (await SELF.fetch(`${ORIGIN}/_preview/notes.png`)).arrayBuffer();
     expect(new Uint8Array(edited)).not.toEqual(new Uint8Array(original));
     const outbound = vi.fn();
@@ -134,6 +150,30 @@ describe("Worker request flow", () => {
     expect((await SELF.fetch(`${ORIGIN}/_preview/missing.png`)).status).toBe(404);
     expect((await SELF.fetch(`${ORIGIN}/_preview/notes.png/extra`)).status).toBe(404);
     expect(outbound).not.toHaveBeenCalled();
+  });
+
+  it("rejects delayed image uploads after edits or deletion and never serves a previous body", async () => {
+    const link = await create("notes");
+    const pixels = new Uint8Array(PREVIEW_IMAGE_WIDTH * PREVIEW_IMAGE_HEIGHT * 4);
+    const upload = { title: link.title, destination: link.destination, origin: ORIGIN,
+      segment: compressPreviewSection(pixels, PREVIEW_HEADER_HEIGHT, PREVIEW_IMAGE_HEIGHT) };
+    const send = (body = upload, origin = ORIGIN) => SELF.fetch(`${ORIGIN}/api/links/notes/image`, {
+      method: "POST", headers: { "Content-Type": "application/json", Origin: origin }, body: JSON.stringify(body),
+    });
+    expect((await send()).status).toBe(204);
+    expect((await send(upload, "https://attacker.example")).status).toBe(403);
+    expect((await send({ ...upload, origin: "https://old.example" })).status).toBe(409);
+    await env.DB.prepare("UPDATE links SET destination = 'https://example.com/new' WHERE slug = 'notes'").run();
+    expect((await send()).status).toBe(409);
+    for (const method of ["GET", "HEAD"]) {
+      const response = await SELF.fetch(`${ORIGIN}/_preview/notes.png`, { method });
+      expect(response.status).toBe(503);
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+    }
+    expect((await SELF.fetch(`${ORIGIN}/notes`, { redirect: "manual" })).headers.get("Location")).toBe("https://example.com/new");
+    await SELF.fetch(`${ORIGIN}/api/links/notes`, { method: "DELETE", headers: { Origin: ORIGIN } });
+    expect((await send()).status).toBe(409);
+    expect(await env.DB.prepare("SELECT slug FROM preview_images WHERE slug = 'notes'").first()).toBeNull();
   });
 
   it("blocks public preview and redirect immediately after revoke, expiry or deletion", async () => {

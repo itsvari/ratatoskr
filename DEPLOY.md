@@ -90,3 +90,11 @@ bun run dev
 Vite and Wrangler share the repository's `.wrangler/state` directory. Local mode accepts the development identity only on the configured HTTP loopback origin. It also permits Vite's local development scripts. Production settings omit `LOCAL_DEVELOPMENT`, and HTTPS origins cannot activate that mode even if the flag is accidentally present.
 
 Keep `.dev.vars` out of Git. The build can copy that file into its local output for development, but Wrangler publication uses the deployment configuration's variables. Do not pass `.dev.vars` as a production secrets file.
+
+## Stored preview images
+
+Apply all numbered migrations before publication. Preview bodies are now stored in D1. The admin browser renders a body after creating or editing a link and uploads it through the authenticated, Origin-checked API. Public requests read primary D1 and assemble PNG bytes without Wasm or font loading. Redirects do not wait for image generation.
+
+Existing links need **Regenerate preview image** in the admin panel after the migration. External API clients must upload a body to `POST /api/links/:slug/image` after creating a link or changing its title/destination. Use `shared/preview-image.ts` for the bounded wire format and `shared/preview-compression.ts` for encoding. Failed or interrupted generation leaves the image unavailable with an uncached 503; the admin regeneration action retries it. A stale upload returns 409. Revocation and expiry block access immediately, and deletion removes stored image data while reserving the slug.
+
+The default branding section is a build-time asset. Regenerate it with `bun run generate:preview-header` after changing the template or font. Keep its 72-row boundary above link-specific content. See `docs/preview-performance.md` for limits, staging evidence and remaining uncertainty.

@@ -1,96 +1,40 @@
+import { z } from "zod";
 import type { Link } from "../shared/contracts";
-import { escapeHtml } from "./preview";
-import { createPreviewRenderer } from "./preview-renderer";
-import { PREVIEW_IMAGE_HEIGHT, PREVIEW_IMAGE_WIDTH } from "./preview-dimensions";
-import { encodePng } from "./png";
+import { previewSegmentSchema, type PreviewUpload, type PreviewSegment } from "../shared/preview-image";
+import { assemblePreviewPng } from "./png";
+import { ApplicationError } from "./errors";
+import defaultHeader from "./assets/preview-header.json";
+export { renderPreviewSvg } from "./preview-template";
 
-const MAXIMUM_CACHED_IMAGES = 8;
-const MAXIMUM_CACHED_IMAGE_BYTES = 512 * 1024;
-const images = new Map<string, Uint8Array<ArrayBuffer>>();
-let cachedBytes = 0;
-
-function shorten(value: string, maximumLength: number): string {
-  const characters = Array.from(value.replace(/[\u0000-\u001f\u007f]/g, " "));
-  return characters.length > maximumLength ? `${characters.slice(0, maximumLength - 1).join("")}…` : characters.join("");
+export async function storePreviewImage(database: D1Database, slug: string, upload: PreviewUpload): Promise<void> {
+  const result = await database.withSession("first-primary").prepare(`
+    INSERT INTO preview_images (slug, title, destination, origin, segment)
+    SELECT slug, title, destination, ?, ? FROM links
+    WHERE slug = ? AND status != 'deleted' AND title = ? AND destination = ?
+    ON CONFLICT(slug) DO UPDATE SET title = excluded.title, destination = excluded.destination,
+      origin = excluded.origin, segment = excluded.segment RETURNING slug`)
+    .bind(upload.origin, JSON.stringify(upload.segment), slug, upload.title, upload.destination).first();
+  if (result === null) throw new ApplicationError("The link changed. Reload it before generating its image again.", 409);
 }
 
-function titleLines(value: string): readonly string[] {
-  let remaining = Array.from(value.replace(/\s+/g, " ").trim());
-  const lines: string[] = [];
-  for (let line = 0; line < 3 && remaining.length > 0; line += 1) {
-    if (remaining.length <= 24) {
-      lines.push(remaining.join(""));
-      break;
-    }
-    if (line === 2) {
-      lines.push(`${remaining.slice(0, 23).join("")}…`);
-      break;
-    }
-    const lastSpace = remaining.slice(0, 25).lastIndexOf(" ");
-    const boundary = lastSpace >= 12 ? lastSpace : 24;
-    lines.push(remaining.slice(0, boundary).join(""));
-    remaining = remaining.slice(boundary);
-    if (remaining[0] === " ") remaining.shift();
+export async function renderPreviewImage(database: D1Database, link: Link, shortOrigin: string,
+  options: { readonly header?: PreviewSegment | null; readonly head?: boolean } = {}): Promise<Response> {
+  const header = options.header === undefined ? defaultHeader : options.header;
+  const row = await database.withSession("first-primary").prepare(`
+    SELECT image.segment FROM preview_images image JOIN links link ON link.slug = image.slug
+    WHERE link.slug = ? AND link.status = 'active' AND (link.expires_at IS NULL OR julianday(link.expires_at) > julianday('now'))
+      AND link.title = image.title AND link.destination = image.destination
+      AND image.title = ? AND image.destination = ? AND image.origin = ?`)
+    .bind(link.slug, link.title, link.destination, shortOrigin).first();
+  if (row === null || header === null) {
+    return new Response("Preview image is not ready. Save the link in the admin panel to generate it.", {
+      status: 503, headers: { "Cache-Control": "no-store", "Retry-After": "60" },
+    });
   }
-  return lines;
-}
-
-export function renderPreviewSvg(link: Link, shortOrigin: string): string {
-  const destination = new URL(link.destination);
-  const title = shorten(link.title || destination.hostname, 120);
-  const shortlink = `${new URL(shortOrigin).host}/${link.slug}`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${PREVIEW_IMAGE_WIDTH}" height="${PREVIEW_IMAGE_HEIGHT}" viewBox="0 0 1200 630">
-    <rect width="1200" height="630" fill="#000"/>
-    <rect x="32" y="32" width="1136" height="566" rx="24" fill="#0c0c0c" stroke="#303030" stroke-width="2"/>
-    <rect x="72" y="80" width="8" height="32" rx="4" fill="#8b5cf6"/>
-    <g font-family="Inter" fill="#eee">
-      <text x="100" y="106" font-size="28" font-weight="600" fill="#a78bfa">Ratatoskr</text>
-      ${titleLines(title).map((line, index) => `<text x="72" y="${202 + index * 52}" font-size="44" font-weight="700">${escapeHtml(line)}</text>`).join("")}
-      <text x="72" y="366" font-size="24" fill="#aaa">This shortlink points to</text>
-      <rect x="72" y="390" width="1056" height="80" rx="10" fill="#141414" stroke="#303030"/>
-      <text x="96" y="441" font-size="24">${escapeHtml(shorten(destination.host, 40))}</text>
-      <text x="72" y="536" font-size="22" fill="#a78bfa">${escapeHtml(shorten(shortlink, 44))}</text>
-      <path d="M1080 514h28m-12-12 12 12-12 12" fill="none" stroke="#a78bfa" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
-  </svg>`;
-}
-
-export async function renderPreviewImage(link: Link, shortOrigin: string): Promise<Response> {
-  const svg = renderPreviewSvg(link, shortOrigin);
-  // Routing validates current primary-D1 data before calling this function, even for a cache hit.
-  const key = JSON.stringify([link.slug, link.title, link.destination, shortOrigin, svg]);
-  const cached = images.get(key);
-  if (cached) {
-    images.delete(key);
-    images.set(key, cached);
-    return imageResponse(cached);
-  }
-  const renderer = await createPreviewRenderer(svg);
-  try {
-    const image = renderer.render();
-    try {
-      const png = encodePng(image.pixels, image.width, image.height);
-      while (images.size >= MAXIMUM_CACHED_IMAGES || cachedBytes + png.byteLength > MAXIMUM_CACHED_IMAGE_BYTES) {
-        const oldest = images.entries().next().value;
-        if (!oldest) break;
-        images.delete(oldest[0]);
-        cachedBytes -= oldest[1].byteLength;
-      }
-      if (png.byteLength <= MAXIMUM_CACHED_IMAGE_BYTES) {
-        images.set(key, png);
-        cachedBytes += png.byteLength;
-      }
-      return imageResponse(png);
-    } finally {
-      image.free();
-    }
-  } finally {
-    renderer.free();
-  }
-}
-
-function imageResponse(png: Uint8Array<ArrayBuffer>): Response {
-  return new Response(png, {
+  if (options.head) return new Response(null, { headers: { "Content-Type": "image/png", "X-Robots-Tag": "noindex", "Cache-Control": "no-store" } });
+  const { segment } = z.object({ segment: z.string() }).parse(row);
+  const body = previewSegmentSchema.parse(JSON.parse(segment));
+  return new Response(assemblePreviewPng(header, body), {
     headers: { "Content-Type": "image/png", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" },
   });
 }

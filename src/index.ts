@@ -6,7 +6,8 @@ import { loadConfiguration, type Bindings, type Configuration } from "./configur
 import { ApplicationError } from "./errors";
 import { createLink, deleteLink, exportLinks, getLink, listLinks, updateLink } from "./links";
 import { renderHome, renderPreview, renderUnavailable } from "./preview";
-import { renderPreviewImage } from "./preview-image";
+import { previewUploadSchema, MAXIMUM_PREVIEW_UPLOAD_BYTES } from "../shared/preview-image";
+import { renderPreviewImage, storePreviewImage } from "./preview-image";
 import { destinationHasPreviewImage, isPreviewCrawler } from "./social-preview";
 import { parseCustomSlug } from "./slugs";
 
@@ -17,7 +18,7 @@ const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "no-referrer",
   "X-Frame-Options": "DENY",
-  "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+  "Content-Security-Policy": "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
   "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
 };
 
@@ -28,7 +29,7 @@ interface RequestVariables {
 
 const application = new Hono<{ Bindings: Bindings; Variables: RequestVariables }>();
 
-async function parseBody<Schema extends z.ZodType>(request: Request, schema: Schema): Promise<z.output<Schema>> {
+async function parseBody<Schema extends z.ZodType>(request: Request, schema: Schema, maximumBytes = MAXIMUM_REQUEST_BYTES): Promise<z.output<Schema>> {
   if (request.headers.get("Content-Type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") {
     throw new ApplicationError("Send the request as application/json.", 415);
   }
@@ -42,7 +43,7 @@ async function parseBody<Schema extends z.ZodType>(request: Request, schema: Sch
     const result = await reader.read();
     if (result.done) break;
     receivedBytes += result.value.byteLength;
-    if (receivedBytes > MAXIMUM_REQUEST_BYTES) {
+    if (receivedBytes > maximumBytes) {
       await reader.cancel();
       throw new ApplicationError("Request body is too large.", 413);
     }
@@ -164,6 +165,15 @@ application.patch("/api/links/:slug", async (context) => {
     administrator: context.get("administrator"), slug, patch }));
 });
 
+application.post("/api/links/:slug/image", async (context) => {
+  const slug = parseCustomSlug(context.req.param("slug"));
+  if (!slug) throw new ApplicationError("Invalid shortlink.", 400);
+  const upload = await parseBody(context.req.raw, previewUploadSchema, MAXIMUM_PREVIEW_UPLOAD_BYTES);
+  if (upload.origin !== context.get("configuration").shortOrigin) throw new ApplicationError("The image origin changed. Reload the admin panel.", 409);
+  await storePreviewImage(context.env.DB, slug, upload);
+  return context.body(null, 204);
+});
+
 application.delete("/api/links/:slug", async (context) => {
   const slug = parseCustomSlug(context.req.param("slug"));
   if (!slug) throw new ApplicationError("Invalid shortlink.", 400);
@@ -204,8 +214,7 @@ application.get("*", async (context) => {
   const link = await getLink(context.env.DB, slug);
   if (!link) return renderUnavailable(404);
   if (link.status !== "active" || (link.expiresAt !== null && Date.parse(link.expiresAt) <= Date.now())) return renderUnavailable(410);
-  if (imageSlug && context.req.method === "HEAD") return context.body(null, 200, { "Content-Type": "image/png", "X-Robots-Tag": "noindex" });
-  if (imageSlug) return renderPreviewImage(link, configuration.shortOrigin);
+  if (imageSlug) return renderPreviewImage(context.env.DB, link, configuration.shortOrigin, { head: context.req.method === "HEAD" });
   if (preview) return renderPreview(link, configuration.shortOrigin);
   context.header("Vary", "User-Agent");
   if (isPreviewCrawler(context.req.header("User-Agent") ?? "")

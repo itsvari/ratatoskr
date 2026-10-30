@@ -59,6 +59,7 @@ import {
 import {
   SessionExpiredError,
   createLink,
+  saveLinkPreview,
   deleteLink,
   exportLinks,
   fetchLinks,
@@ -113,6 +114,7 @@ type PendingConfirmation = {
 type LinkActions = {
   readonly onCopy: (link: Link) => void;
   readonly onCopyPreview: (link: Link) => void;
+  readonly onRegenerate: (link: Link) => void;
   readonly onEdit: (link: Link) => void;
   readonly onRevoke: (link: Link) => void;
   readonly onRestore: (link: Link) => void;
@@ -564,7 +566,18 @@ function Workspace({
     );
   };
 
+  const regeneratePreview = async (link: Link): Promise<void> => {
+    try {
+      await saveLinkPreview(link);
+      announce({ tone: "success", message: `Preview image ready for ${link.slug}.` });
+    } catch (error) {
+      if (error instanceof SessionExpiredError) { reportError(error); return; }
+      announce({ tone: "error", message: `Link saved, but its image is unavailable. Use Regenerate preview image to retry. ${messageFromError(error)}` });
+    }
+  };
+
   const handleCreated = (link: Link): void => {
+    void regeneratePreview(link);
     // only splice into the visible page when it would have appeared there anyway
     if (search === "" && matchesFilter(link)) {
       setListState((current) =>
@@ -634,6 +647,7 @@ function Workspace({
       void copyToClipboard({ text: redirectUrl({ session, slug: link.slug }), label: "short link", announce }),
     onCopyPreview: (link) =>
       void copyToClipboard({ text: previewUrl({ session, slug: link.slug }), label: "preview link", announce }),
+    onRegenerate: (link) => void regeneratePreview(link),
     onEdit: setEditingLink,
     onRevoke: (link) => setConfirmation({ action: "revoke", link }),
     onRestore: (link) => void restoreLink(link),
@@ -763,6 +777,7 @@ function Workspace({
             onClose={() => setEditingLink(null)}
             onSaved={(updated) => {
               replaceLink(updated);
+              void regeneratePreview(updated);
               setEditingLink(null);
               announce({ tone: "success", message: `Saved ${shortHost}/${updated.slug}.` });
             }}
@@ -920,7 +935,7 @@ function LinkTable({
             <TableHead className="w-24">Status</TableHead>
             <TableHead className="w-44">Expires</TableHead>
             <TableHead className="w-28">Created</TableHead>
-            <TableHead className="w-44 px-4 text-right">
+            <TableHead className="w-52 px-4 text-right">
               <span className="sr-only">Actions</span>
             </TableHead>
           </TableRow>
@@ -1078,6 +1093,7 @@ function RowActions({
         icon={EyeIcon}
         onClick={() => actions.onCopyPreview(link)}
       />
+      <IconAction label={`Regenerate preview image for ${link.slug}`} icon={RotateCcwIcon} onClick={() => actions.onRegenerate(link)} />
       <IconAction label={`Edit ${link.slug}`} icon={PencilIcon} onClick={() => actions.onEdit(link)} />
       {link.status === "active" ? (
         <IconAction label={`Revoke ${link.slug}`} icon={BanIcon} onClick={() => actions.onRevoke(link)} />

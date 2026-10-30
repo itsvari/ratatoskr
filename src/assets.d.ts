@@ -7,3 +7,8 @@ declare module "*.bin" {
   const font: ArrayBuffer;
   export default font;
 }
+
+declare module "*?url" {
+  const url: string;
+  export default url;
+}
