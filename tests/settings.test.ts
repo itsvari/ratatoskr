@@ -1,9 +1,11 @@
+import { previewSections } from "./preview-fixture";
+import { storePreviewImage } from "../src/preview-image";
 import { env, SELF, createExecutionContext } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_DISPLAY_NAME, MAXIMUM_DISPLAY_NAME_LENGTH, sessionSchema, siteSettingsSchema } from "../shared/contracts";
 import { getSiteSettings, updateSiteSettings } from "../src/settings";
 import { brandAdminPage } from "../src/preview";
-import { renderPreviewSvg } from "../src/preview-image";
+import { renderPreviewSvg } from "../src/preview-template";
 import worker from "../src/index";
 
 const ORIGIN = "http://localhost:5173";
@@ -11,36 +13,38 @@ const administrator = { subject: "settings-owner", email: "owner@example.com" };
 
 beforeEach(async () => {
   await env.DB.batch([
+    env.DB.prepare("DELETE FROM preview_images"),
     env.DB.prepare("DELETE FROM site_settings_audit"),
     env.DB.prepare("DELETE FROM audit_events"),
     env.DB.prepare("DELETE FROM links"),
     env.DB.prepare("DELETE FROM administrators"),
-    env.DB.prepare("UPDATE site_settings SET display_name = 'Ratatoskr' WHERE singleton = 1"),
+    env.DB.prepare("UPDATE site_settings SET display_name = 'Ratatoskr', preview_header = NULL WHERE singleton = 1"),
   ]);
 });
 
-function save(displayName: unknown, origin = ORIGIN) {
+async function save(displayName: unknown, origin = ORIGIN) {
+  const previewHeader = (await previewSections(siteSettingsSchema.safeParse({ displayName }).success && typeof displayName === "string" ? displayName.trim() : "invalid")).header;
   return SELF.fetch(`${ORIGIN}/api/settings`, {
     method: "PATCH", headers: { "Content-Type": "application/json", Origin: origin },
-    body: JSON.stringify({ displayName }),
+    body: JSON.stringify({ displayName, previewHeader }),
   });
 }
 
 describe("Site settings", () => {
   it("starts with the default name and persists trimmed changes with an atomic audit", async () => {
     expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME });
-    expect(await updateSiteSettings(env.DB, administrator, { displayName: "  My Links  " })).toEqual({ displayName: "My Links" });
+    expect(await updateSiteSettings(env.DB, administrator, { displayName: "  My Links  ", previewHeader: (await previewSections("My Links")).header })).toEqual({ displayName: "My Links" });
     expect(await getSiteSettings(env.DB)).toEqual({ displayName: "My Links" });
     expect(await env.DB.prepare("SELECT actor_subject, display_name FROM site_settings_audit").first())
       .toEqual({ actor_subject: administrator.subject, display_name: "My Links" });
-    await updateSiteSettings(env.DB, administrator, { displayName: "My Links" });
+    await updateSiteSettings(env.DB, administrator, { displayName: "My Links", previewHeader: (await previewSections("My Links")).header });
     expect(await env.DB.prepare("SELECT COUNT(*) AS count FROM site_settings_audit").first("count")).toBe(1);
   });
 
   it("rolls back settings and administrator creation when the audit fails", async () => {
     await env.DB.prepare("CREATE TRIGGER reject_settings_audit BEFORE INSERT ON site_settings_audit BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END").run();
     try {
-      await expect(updateSiteSettings(env.DB, administrator, { displayName: "Withdrawn change" })).rejects.toThrow();
+      await expect(updateSiteSettings(env.DB, administrator, { displayName: "Withdrawn change", previewHeader: (await previewSections("Withdrawn change")).header })).rejects.toThrow();
       expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME });
       expect(await env.DB.prepare("SELECT COUNT(*) AS count FROM administrators").first("count")).toBe(0);
     } finally {
@@ -64,6 +68,14 @@ describe("Site settings", () => {
     })).status).toBe(400);
   });
 
+  it("requires generated branding for a custom name and leaves the previous settings intact", async () => {
+    const response = await SELF.fetch(`${ORIGIN}/api/settings`, { method: "PATCH",
+      headers: { Origin: ORIGIN, "Content-Type": "application/json" }, body: JSON.stringify({ displayName: "Unrendered name" }) });
+    expect(response.status).toBe(400);
+    expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME });
+    expect(await env.DB.prepare("SELECT preview_header FROM site_settings WHERE singleton = 1").first("preview_header")).toBeNull();
+  });
+
   it("requires Access on the management host and hides settings on public hosts", async () => {
     const environment = { ...env, SHORT_ORIGIN: "https://links.example.com", ADMIN_ORIGIN: "https://admin.example.com",
       PREVIEW_ORIGIN: "https://preview.example.com", LOCAL_DEVELOPMENT: "false" };
@@ -83,6 +95,8 @@ describe("Site settings", () => {
       method: "POST", headers: { "Content-Type": "application/json", Origin: ORIGIN },
       body: JSON.stringify({ slug: "branding", destination: "http://192.0.2.1/notes", title: "Notes" }),
     })).status).toBe(201);
+    await storePreviewImage(env.DB, "branding", { title: "Notes", destination: "http://192.0.2.1/notes", origin: ORIGIN,
+      segment: (await previewSections("Ratatoskr")).body });
     const before = new Uint8Array(await (await SELF.fetch(`${ORIGIN}/_preview/branding.png`)).arrayBuffer());
     const response = await save("  My Links & Notes  ");
     expect(response.status).toBe(200);

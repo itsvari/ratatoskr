@@ -1,7 +1,7 @@
 import { env as environment } from "cloudflare:workers";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { createLinkSchema, linkExportFilename, linkStatusSchema, siteSettingsSchema, updateLinkSchema, type SiteSettings } from "../shared/contracts";
+import { createLinkSchema, linkExportFilename, linkStatusSchema, updateSiteSettingsSchema, updateLinkSchema, type SiteSettings } from "../shared/contracts";
 import { acceptsMutation, authenticate, type Administrator } from "./auth";
 import { loadConfiguration, type Bindings, type Configuration } from "./configuration";
 import { ApplicationError } from "./errors";
@@ -159,7 +159,7 @@ application.get("/api/session", async (context) => {
 application.get("/api/settings", async (context) => context.json(await readSettings(context)));
 
 application.patch("/api/settings", async (context) => {
-  const settings = await parseBody(context.req.raw, siteSettingsSchema);
+  const settings = await parseBody(context.req.raw, updateSiteSettingsSchema, MAXIMUM_PREVIEW_UPLOAD_BYTES);
   return context.json(await updateSiteSettings(context.env.DB, context.get("administrator"), settings));
 });
 

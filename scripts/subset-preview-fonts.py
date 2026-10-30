@@ -7,6 +7,7 @@ from collections import defaultdict
 from io import BytesIO
 from pathlib import Path
 import sys
+import subprocess
 
 from fontTools import subset
 from fontTools.ttLib import TTFont
@@ -106,3 +107,6 @@ export function previewAdvance(codepoint: number): number {
   return advances.get(codepoint) ?? 1;
 }
 """, encoding="utf-8")
+
+# browser asset URLs and text metrics are derived from the same subset inventory.
+subprocess.run(["node", "scripts/prepare-preview-fonts.ts"], check=True)

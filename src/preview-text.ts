@@ -1,4 +1,4 @@
-import { previewAdvance, previewFontFamily } from "./assets/fallback-fonts";
+import { previewAdvance, previewFontFamily } from "./assets/preview-font-metrics";
 import { escapeHtml } from "./preview";
 import bidiFactory from "bidi-js";
 

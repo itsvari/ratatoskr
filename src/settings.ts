@@ -1,4 +1,5 @@
-import { siteSettingsSchema, type SiteSettings } from "../shared/contracts";
+import { storedPreviewSegmentSchema } from "../shared/preview-image";
+import { DEFAULT_DISPLAY_NAME, siteSettingsSchema, updateSiteSettingsSchema, type UpdateSiteSettings, type SiteSettings } from "../shared/contracts";
 import type { Administrator } from "./auth";
 
 export async function getSiteSettings(database: D1Database): Promise<SiteSettings> {
@@ -7,17 +8,26 @@ export async function getSiteSettings(database: D1Database): Promise<SiteSetting
   return siteSettingsSchema.parse(row);
 }
 
-export async function updateSiteSettings(database: D1Database, administrator: Administrator, settings: SiteSettings): Promise<SiteSettings> {
-  const { displayName } = siteSettingsSchema.parse(settings);
+export async function updateSiteSettings(database: D1Database, administrator: Administrator, settings: UpdateSiteSettings): Promise<SiteSettings> {
+  const { displayName, previewHeader } = updateSiteSettingsSchema.parse(settings);
   const session = database.withSession("first-primary");
   const results = await session.batch([
     session.prepare("INSERT INTO administrators (subject, email) VALUES (?, ?) ON CONFLICT(subject) DO UPDATE SET email = excluded.email")
       .bind(administrator.subject, administrator.email),
-    session.prepare("UPDATE site_settings SET display_name = ? WHERE singleton = 1 AND display_name != ? RETURNING display_name AS displayName")
-      .bind(displayName, displayName),
+    session.prepare("UPDATE site_settings SET display_name = ?, preview_header = ? WHERE singleton = 1 AND (display_name != ? OR preview_header IS NOT ?) RETURNING display_name AS displayName")
+      .bind(displayName, previewHeader ? JSON.stringify(previewHeader) : null, displayName, previewHeader ? JSON.stringify(previewHeader) : null),
     session.prepare("INSERT INTO site_settings_audit (identifier, actor_subject, display_name, created_at) SELECT ?, ?, ?, ? WHERE changes() > 0")
       .bind(crypto.randomUUID(), administrator.subject, displayName, new Date().toISOString()),
   ]);
   const updated = results[1]?.results[0];
   return updated === undefined ? getSiteSettings(database) : siteSettingsSchema.parse(updated);
+}
+
+export async function getPreviewHeader(database: D1Database) {
+  const row = await database.withSession("first-primary").prepare(
+    "SELECT display_name, preview_header FROM site_settings WHERE singleton = 1")
+    .first<{ display_name: string; preview_header: string | null }>();
+  if (row?.display_name === DEFAULT_DISPLAY_NAME) return undefined;
+  if (!row?.preview_header) return null;
+  return storedPreviewSegmentSchema.parse(JSON.parse(row.preview_header));
 }

@@ -99,7 +99,9 @@ export async function fetchSession(signal?: AbortSignal): Promise<Session> {
 }
 
 export async function saveSiteSettings(body: SiteSettings): Promise<SiteSettings> {
-  return readJson(await request("/api/settings", { method: "PATCH", body }), siteSettingsSchema);
+  const { generatePreviewHeader } = await import("./preview-image");
+  const previewHeader = await generatePreviewHeader(body.displayName);
+  return readJson(await request("/api/settings", { method: "PATCH", body: { ...body, previewHeader } }), siteSettingsSchema);
 }
 
 export async function fetchLinks({

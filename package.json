@@ -24,6 +24,7 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p tests/tsconfig.json && tsc -p scripts/tsconfig.json",
     "test": "vitest run",
     "verify": "bun run check:runtime && bun run types && bun run typecheck && bun run test && bun run build",
+    "prepare:preview-fonts": "node scripts/prepare-preview-fonts.ts",
     "generate:preview-header": "bun scripts/generate-preview-header.ts",
     "profile:preview:deployed": "node scripts/profile-preview-deployed.ts",
     "profile:preview": "node scripts/check-runtime.ts && node scripts/profile-preview.ts",

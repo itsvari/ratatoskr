@@ -1,8 +1,12 @@
+import { previewSections } from "./preview-fixture";
+import { storePreviewImage } from "../src/preview-image";
+import type { Link } from "../shared/contracts";
 import { env, SELF } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { Resvg } from "@resvg/resvg-wasm";
 import { inflateSync } from "node:zlib";
-import { renderPreviewImage, renderPreviewSvg } from "../src/preview-image";
+import { renderPreviewSvg } from "../src/preview-template";
+import { createPreviewRenderer } from "../src/preview-renderer";
 import { encodePng } from "../src/png";
 import { fallbackFontsForText } from "../src/assets/fallback-fonts";
 import inter from "../src/assets/inter.ttf.bin";
@@ -12,9 +16,18 @@ const ORIGIN = "http://localhost:5173";
 const link = { slug: "international", title: "Useful links", destination: "https://example.com/notes", status: "active",
   expiresAt: null, createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" } as const;
 
+async function renderPreviewImage(link: Link, shortOrigin: string, name: string): Promise<Response> {
+  const renderer = await createPreviewRenderer(renderPreviewSvg(link, shortOrigin, name));
+  try {
+    const image = renderer.render();
+    try { return new Response(encodePng(image.pixels, image.width, image.height)); }
+    finally { image.free(); }
+  } finally { renderer.free(); }
+}
+
 beforeEach(async () => {
   await env.DB.batch([
-    env.DB.prepare("DELETE FROM site_settings_audit"), env.DB.prepare("DELETE FROM audit_events"),
+    env.DB.prepare("DELETE FROM preview_images"), env.DB.prepare("DELETE FROM site_settings_audit"), env.DB.prepare("DELETE FROM audit_events"),
     env.DB.prepare("DELETE FROM links"), env.DB.prepare("DELETE FROM administrators"),
     env.DB.prepare("UPDATE site_settings SET display_name = 'Ratatoskr' WHERE singleton = 1"),
   ]);
@@ -90,10 +103,12 @@ describe("International preview fonts", () => {
       body: JSON.stringify({ slug: link.slug, title: link.title, destination: link.destination }),
     });
     expect(created.status).toBe(201);
+    await storePreviewImage(env.DB, link.slug, { title: link.title, destination: link.destination, origin: ORIGIN,
+      segment: (await previewSections("Ratatoskr", link)).body });
     const images: Uint8Array[] = [];
     for (const displayName of ["我的链接", "روابطي"]) {
       const saved = await SELF.fetch(`${ORIGIN}/api/settings`, {
-        method: "PATCH", headers: { Origin: ORIGIN, "Content-Type": "application/json" }, body: JSON.stringify({ displayName }),
+        method: "PATCH", headers: { Origin: ORIGIN, "Content-Type": "application/json" }, body: JSON.stringify({ displayName, previewHeader: (await previewSections(displayName)).header }),
       });
       expect(saved.status).toBe(200);
       expect((await SELF.fetch(`${ORIGIN}/${link.slug}+`)).headers.get("Cache-Control")).toBe("no-store");
