@@ -76,3 +76,58 @@ These Linux workerd main-thread CPU measurements exclude the application router,
 The original 1200 × 630 renderer had warm medians of 26.0–26.8 ms and first-render CPU of 74.4–94.9 ms. The 600 × 315 renderer with native level-1 deflate measured 41.2–44.4 ms on first render, warm changed-title medians of 5.4–5.6 ms, p95 of 7.2–9.4 ms and a maximum of 10.4 ms. Cached-image medians were 0.21–0.23 ms. A typical PNG was approximately 13 KiB.
 
 Observed Wasm linear memory was 3.34 MB, V8 used heap 1.6 MB and backing storage 6.3–7.8 MB. Those fields are not additive production memory evidence. The former isolate cache was capped at eight images / 512 KiB. It reduced repeats but could not resolve first-render or eviction costs, which is why persistence replaced it.
+
+## Display-name staging results
+
+The stacked PR preserves accepted names, shaping, bidi ordering and glyph-advance layout. The browser loads only the Arabic/CJK subset pages needed by the SVG, from the same authenticated, self-hosted admin assets as Inter and Wasm. The inventory bounds its font cache. Failed font loads are removed from the cache so saving can retry. No font binaries or text-layout tables enter the public Worker.
+
+A custom-name save supplies its rendered header with the name. D1 commits the name, header and audit together. Default-name saves restore the built-in header. Link bodies do not need regeneration when the name changes, so the operation has constant database work regardless of link count. An external settings client must supply `previewHeader` for a custom name; missing headers are rejected before changing settings. Migration `0003_site_settings.sql` follows #1's `0002_preview_images.sql`.
+
+The original #2 remote head was `baa3d039c81f852db8ccea19e7d1136f8c07c0b2`. Its dedicated deployed baseline used 12 requests per name. Three early Chinese requests returned 404 without an invocation record during hostname propagation and are excluded. The remaining 57 requests returned 200:
+
+| Original renderer, requests by name | CPU records | Median CPU | p95 / maximum CPU |
+| --- | ---: | ---: | ---: |
+| 我的链接 | 9 | 146 ms | 253 ms |
+| روابطي | 12 | 23 ms | 34 ms |
+| Mixed Chinese/Arabic/numbers | 12 | 26 ms | 32 ms |
+| Diacritics | 12 | 19 ms | 36 ms |
+| 48 ideographs from distinct font pages | 12 | 43 ms | 60 ms |
+
+These baseline requests were not instrumented with isolate counters, so repeated URLs cannot reliably be classified as cache hits. The first Chinese request has no invocation CPU record. The #1 baseline and the final runs provide separately identified first-request measurements.
+
+The final implementation used two independently deployed Workers, each with a confirmed sequence-1 request in a new isolate, the 48-page branding header, 29 varied bodies, ten HEADs and eight concurrent GETs:
+
+| Stored image path | n | Median CPU | p95 CPU per run | Maximum CPU |
+| --- | ---: | ---: | ---: | ---: |
+| First PNG | 2 | 14–18 ms | 14–18 ms | 18 ms |
+| Varied images | 58 | 3 ms | 8 ms | 16 ms |
+| HEAD | 20 | 1–2 ms | 2–3 ms | 3 ms |
+| Concurrent images | 16 | 3–4 ms | 3–12 ms | 12 ms |
+
+All 96 returned 200 with invocation outcome `ok`. CPU above 10 ms was observed on both first requests, one varied-image request and two concurrent requests. This is not a claim that those requests were terminated. It also does not demonstrate reliable Free compatibility.
+
+A separate secret-protected diagnostic measured persistence against synthetic D1 records. It was never the application entry point and was deleted afterwards. It exercised the real upload schema/storage function and settings/audit transaction, but excluded Access JWT validation and the application's streaming body parser. Public image GETs still used the complete application. Eighteen settings writes across six real rendered names took at most 11 ms, on the first write; fifteen body uploads took at most 4 ms. All succeeded. Thus moving rendering into the browser did not put rasterisation into another constrained Worker operation, but the complete authenticated write flow is not proven within 10 ms.
+
+Five adversarial 120-character titles were rendered by the actual browser generator: Chinese, Arabic, mixed scripts/numbers, diacritics and long Latin text. Their uploaded base64 bodies were 16,304–23,652 bytes. Each was fetched eight times with the 48-page branding header. Maximum invocation CPU was 12 ms for Chinese, 3 ms for Arabic, 2 ms for mixed scripts, 9 ms for diacritics and 2 ms for long Latin text. The 12 ms sample was the diagnostic Worker's first public application GET. Every request returned 200; the actual resulting PNGs were inspected.
+
+**Reliable Free compatibility for #2 remains uncertain. Strict 10 ms compliance is disproven for the observed cold, varied-image, concurrent and first-settings-write cases.** Rendering is now entirely on the admin device, and public CPU is much lower, but the remaining routing, D1 protocol, JSON/base64 and PNG packaging path still has over-budget samples. This run did not attribute the residual CPU to individual runtime operations. Averages and successful responses do not resolve those tails. No paid plan or paid rendering service was introduced as a workaround.
+
+The Worker upload fell from 14,288.74 KiB / 7,844.62 KiB gzip to 294.78 KiB / 73.96 KiB gzip. API-reported startup was 39 ms and 25 ms in the two final Workers. The 10,842,968 bytes of Arabic/CJK fonts are now browser assets; ordinary saves load only required pages. This shifts rendering memory/CPU to the admin device, not a Cloudflare background task. No production isolate-memory metric was available, and package size alone is not memory proof.
+
+Local Chromium checks covered desktop/mobile settings, save/reload, reset, appearance persistence, a failed settings-write retry and a failed font-download retry. Actual PNGs were inspected for Chinese, Arabic, Arabic marks, mixed scripts/numbers, diacritics and 48 distinct CJK pages. The local application used explicit `wrangler.jsonc` migrations. Live synthetic public requests additionally verified 200 before revocation, 410 after revocation/expiry, 503 after an edit pending upload and 404 after deletion. Local Workers/D1 regressions cover delayed uploads and audit rollback. Production Access login and production publication were not performed.
+
+Sanitised records are in [preview-display-name-results.json](preview-display-name-results.json). The diagnostic's authentication and sampling limitations apply to those records.
+
+## Historical local international-name measurements
+
+These are the earlier Linux workerd/native-encoder measurements, not deployed CPU and not an end-to-end measurement of the new browser encoder. Three fresh processes used 30 repeated images and 30 changed-title misses each:
+
+| Name | First PNG CPU | Miss median | Miss p95 | Hit median |
+| --- | --- | --- | --- | --- |
+| 我的链接 | 47.1–47.9 ms | 5.8–8.2 ms | 7.2–9.7 ms | 0.29–0.31 ms |
+| روابطي | 46.7–65.7 ms | 5.5–5.6 ms | 6.7–8.7 ms | 0.29–0.30 ms |
+| 48 ideographs from distinct pages | 57.6–59.8 ms | 9.1–9.4 ms | 12.6–12.9 ms | 0.34–0.37 ms |
+
+Wasm linear memory was 3.5–3.7 MB for ordinary names and 6.7 MB for the 48-page case. Inspector used heap reached 8.5 MB and backing storage 57.4 MB. These fields are not additive production memory measurements. Local fresh-process readiness took 467–534 ms wall time, including Miniflare startup. No local memory-limit errors occurred.
+
+Font coverage remains that of Inter, the bundled Arabic font and the source SC font's CJK subsets. The accepted character set has not been narrowed to conceal unsupported glyphs in other scripts or colour emoji.

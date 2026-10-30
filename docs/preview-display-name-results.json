@@ -1,0 +1,2281 @@
+{
+  "recordedAt": "2026-10-30T10:00:02.460Z",
+  "method": "Cloudflare Workers Observability invocation cpuTimeMs, integer milliseconds. No latency substitution. Synthetic fixture traffic only; headers, client addresses and credentials omitted.",
+  "limitations": "Three initial Chinese-baseline HTTP 404s have no Worker invocation record and are excluded. Mutation probes exclude Access JWT validation; public image GETs use the complete application. No production memory metric.",
+  "freshIsolates": [
+    {
+      "phase": "primed2-a",
+      "status": 200,
+      "isolate": "1fc5ca72-b081-4716-acc5-e64a71af2a2d",
+      "sequence": "1"
+    },
+    {
+      "phase": "primed2-b",
+      "status": 200,
+      "isolate": "977681a6-bdd2-4acc-8622-422a57f19093",
+      "sequence": "1"
+    }
+  ],
+  "records": [
+    {
+      "label": "i18n-chinese-repeat-1",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:46.063Z",
+      "cpuTimeMs": 241,
+      "wallTimeMs": 306,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-chinese-varied-3",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:47.040Z",
+      "cpuTimeMs": 231,
+      "wallTimeMs": 278,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-chinese-varied-5",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:48.003Z",
+      "cpuTimeMs": 146,
+      "wallTimeMs": 190,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-chinese-varied-6",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:48.558Z",
+      "cpuTimeMs": 253,
+      "wallTimeMs": 298,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-chinese-varied-7",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:49.096Z",
+      "cpuTimeMs": 22,
+      "wallTimeMs": 56,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-chinese-varied-8",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:49.578Z",
+      "cpuTimeMs": 170,
+      "wallTimeMs": 235,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-chinese-varied-9",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:49.874Z",
+      "cpuTimeMs": 36,
+      "wallTimeMs": 80,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-chinese-varied-10",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:50.484Z",
+      "cpuTimeMs": 127,
+      "wallTimeMs": 167,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-chinese-varied-11",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:50.743Z",
+      "cpuTimeMs": 21,
+      "wallTimeMs": 49,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-arabic-first-12",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:51.982Z",
+      "cpuTimeMs": 30,
+      "wallTimeMs": 77,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-arabic-repeat-13",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:52.320Z",
+      "cpuTimeMs": 24,
+      "wallTimeMs": 59,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-arabic-repeat-14",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:52.455Z",
+      "cpuTimeMs": 4,
+      "wallTimeMs": 43,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-arabic-varied-15",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:52.607Z",
+      "cpuTimeMs": 19,
+      "wallTimeMs": 58,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-arabic-varied-16",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:52.840Z",
+      "cpuTimeMs": 23,
+      "wallTimeMs": 63,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-arabic-varied-17",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:52.969Z",
+      "cpuTimeMs": 29,
+      "wallTimeMs": 84,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-arabic-varied-18",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:53.291Z",
+      "cpuTimeMs": 14,
+      "wallTimeMs": 46,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-arabic-varied-19",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:53.384Z",
+      "cpuTimeMs": 22,
+      "wallTimeMs": 71,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-arabic-varied-20",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:53.468Z",
+      "cpuTimeMs": 23,
+      "wallTimeMs": 54,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-arabic-varied-21",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:53.591Z",
+      "cpuTimeMs": 29,
+      "wallTimeMs": 70,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-arabic-varied-22",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:53.832Z",
+      "cpuTimeMs": 34,
+      "wallTimeMs": 87,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-arabic-varied-23",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:53.955Z",
+      "cpuTimeMs": 16,
+      "wallTimeMs": 45,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-mixed-first-24",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:55.491Z",
+      "cpuTimeMs": 31,
+      "wallTimeMs": 79,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-mixed-repeat-25",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:55.631Z",
+      "cpuTimeMs": 23,
+      "wallTimeMs": 65,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-mixed-repeat-26",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:55.756Z",
+      "cpuTimeMs": 5,
+      "wallTimeMs": 61,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-mixed-varied-27",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:55.913Z",
+      "cpuTimeMs": 31,
+      "wallTimeMs": 78,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-mixed-varied-28",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:56.023Z",
+      "cpuTimeMs": 25,
+      "wallTimeMs": 71,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-mixed-varied-29",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:56.165Z",
+      "cpuTimeMs": 27,
+      "wallTimeMs": 73,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-mixed-varied-30",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:56.593Z",
+      "cpuTimeMs": 20,
+      "wallTimeMs": 53,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-mixed-varied-31",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:56.688Z",
+      "cpuTimeMs": 26,
+      "wallTimeMs": 57,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-mixed-varied-32",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:56.771Z",
+      "cpuTimeMs": 25,
+      "wallTimeMs": 54,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-mixed-varied-33",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:56.959Z",
+      "cpuTimeMs": 27,
+      "wallTimeMs": 69,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-mixed-varied-34",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:57.062Z",
+      "cpuTimeMs": 32,
+      "wallTimeMs": 78,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-mixed-varied-35",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:57.193Z",
+      "cpuTimeMs": 20,
+      "wallTimeMs": 54,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-diacritics-first-36",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:58.394Z",
+      "cpuTimeMs": 19,
+      "wallTimeMs": 65,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-diacritics-repeat-37",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:58.578Z",
+      "cpuTimeMs": 34,
+      "wallTimeMs": 66,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-diacritics-repeat-38",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:58.665Z",
+      "cpuTimeMs": 19,
+      "wallTimeMs": 49,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-diacritics-varied-39",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:58.751Z",
+      "cpuTimeMs": 19,
+      "wallTimeMs": 49,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-diacritics-varied-40",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:58.840Z",
+      "cpuTimeMs": 33,
+      "wallTimeMs": 71,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-diacritics-varied-41",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:58.953Z",
+      "cpuTimeMs": 15,
+      "wallTimeMs": 48,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-diacritics-varied-42",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:59.050Z",
+      "cpuTimeMs": 25,
+      "wallTimeMs": 60,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-diacritics-varied-43",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:59.152Z",
+      "cpuTimeMs": 18,
+      "wallTimeMs": 54,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-diacritics-varied-44",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:59.233Z",
+      "cpuTimeMs": 15,
+      "wallTimeMs": 50,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-diacritics-varied-45",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:59.415Z",
+      "cpuTimeMs": 36,
+      "wallTimeMs": 81,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-diacritics-varied-46",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:59.602Z",
+      "cpuTimeMs": 19,
+      "wallTimeMs": 63,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-diacritics-varied-47",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:16:59.691Z",
+      "cpuTimeMs": 26,
+      "wallTimeMs": 62,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-long-first-48",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:17:01.308Z",
+      "cpuTimeMs": 28,
+      "wallTimeMs": 66,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-long-repeat-49",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:17:01.448Z",
+      "cpuTimeMs": 4,
+      "wallTimeMs": 48,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-long-repeat-50",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:17:01.672Z",
+      "cpuTimeMs": 53,
+      "wallTimeMs": 91,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-long-varied-51",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:17:01.796Z",
+      "cpuTimeMs": 28,
+      "wallTimeMs": 70,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-long-varied-52",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:17:01.899Z",
+      "cpuTimeMs": 34,
+      "wallTimeMs": 70,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-long-varied-53",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:17:01.996Z",
+      "cpuTimeMs": 43,
+      "wallTimeMs": 77,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-long-varied-54",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:17:02.232Z",
+      "cpuTimeMs": 24,
+      "wallTimeMs": 54,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-long-varied-55",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:17:02.325Z",
+      "cpuTimeMs": 42,
+      "wallTimeMs": 84,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-long-varied-56",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:17:02.736Z",
+      "cpuTimeMs": 60,
+      "wallTimeMs": 109,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-long-varied-57",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:17:02.867Z",
+      "cpuTimeMs": 50,
+      "wallTimeMs": 90,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-long-varied-58",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:17:03.008Z",
+      "cpuTimeMs": 43,
+      "wallTimeMs": 95,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "i18n-long-varied-59",
+      "worker": "ratatoskr-preview-cpu-20261030-international",
+      "version": "84a6cdc4-1a5f-4bec-a654-b1e3d78c79fd",
+      "timestamp": "2026-10-30T09:17:03.336Z",
+      "cpuTimeMs": 58,
+      "wallTimeMs": 101,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-cold-0",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:05.362Z",
+      "cpuTimeMs": 18,
+      "wallTimeMs": 40,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-1",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:05.507Z",
+      "cpuTimeMs": 5,
+      "wallTimeMs": 25,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-2",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:05.663Z",
+      "cpuTimeMs": 4,
+      "wallTimeMs": 30,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-3",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:05.841Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 21,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-4",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:05.925Z",
+      "cpuTimeMs": 4,
+      "wallTimeMs": 31,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-5",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:06.001Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 20,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-6",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:06.242Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 22,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-7",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:06.343Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 17,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-8",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:06.424Z",
+      "cpuTimeMs": 16,
+      "wallTimeMs": 41,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-9",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:06.618Z",
+      "cpuTimeMs": 4,
+      "wallTimeMs": 32,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-10",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:06.769Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 25,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-11",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:06.958Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 133,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-12",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:07.192Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 19,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-13",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:07.276Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 26,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-14",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:07.477Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 20,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-15",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:07.559Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 19,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-16",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:07.798Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 32,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-17",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:07.952Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 19,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-18",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:08.023Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 23,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-19",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:08.080Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 15,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-20",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:08.310Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 17,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-21",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:08.485Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 20,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-22",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:08.583Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 31,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-23",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:08.773Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 19,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-24",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:08.845Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 22,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-25",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:08.966Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 21,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-26",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:09.029Z",
+      "cpuTimeMs": 8,
+      "wallTimeMs": 30,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-27",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:09.109Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 20,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-28",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:09.191Z",
+      "cpuTimeMs": 4,
+      "wallTimeMs": 37,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-varied-29",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:09.297Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 136,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-head-30",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:09.493Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 25,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-head-31",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:09.556Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 22,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-head-32",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:09.706Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 56,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-head-33",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:09.869Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 21,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-head-34",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:10.008Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 20,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-head-35",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:10.077Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 21,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-head-36",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:10.139Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 21,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-head-37",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:10.191Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 15,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-head-38",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:10.336Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 22,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-head-39",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:10.398Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 19,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-concurrent-2",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:10.546Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 26,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-concurrent-0",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:10.548Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 30,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-concurrent-7",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:10.550Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 28,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-concurrent-6",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:10.552Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 25,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-concurrent-1",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:10.590Z",
+      "cpuTimeMs": 7,
+      "wallTimeMs": 18,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-concurrent-5",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:10.595Z",
+      "cpuTimeMs": 4,
+      "wallTimeMs": 23,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-concurrent-3",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:10.625Z",
+      "cpuTimeMs": 12,
+      "wallTimeMs": 28,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-a-concurrent-4",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-a",
+      "version": "73b80eef-b72c-4688-83a5-594d670c3405",
+      "timestamp": "2026-10-30T09:42:10.633Z",
+      "cpuTimeMs": 11,
+      "wallTimeMs": 28,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-cold-0",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:44.831Z",
+      "cpuTimeMs": 14,
+      "wallTimeMs": 36,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-1",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:45.172Z",
+      "cpuTimeMs": 4,
+      "wallTimeMs": 26,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-2",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:45.308Z",
+      "cpuTimeMs": 6,
+      "wallTimeMs": 30,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-3",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:45.482Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 32,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-4",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:45.603Z",
+      "cpuTimeMs": 5,
+      "wallTimeMs": 32,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-5",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:45.681Z",
+      "cpuTimeMs": 4,
+      "wallTimeMs": 28,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-6",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:45.891Z",
+      "cpuTimeMs": 4,
+      "wallTimeMs": 28,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-7",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:46.051Z",
+      "cpuTimeMs": 5,
+      "wallTimeMs": 32,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-8",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:46.173Z",
+      "cpuTimeMs": 9,
+      "wallTimeMs": 39,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-9",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:46.326Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 26,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-10",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:46.405Z",
+      "cpuTimeMs": 4,
+      "wallTimeMs": 34,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-11",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:46.517Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 23,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-12",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:46.648Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 22,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-13",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:46.721Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 23,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-14",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:46.860Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 22,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-15",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:46.934Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 23,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-16",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:47.100Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 20,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-17",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:47.234Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 24,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-18",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:47.303Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 16,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-19",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:47.380Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 15,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-20",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:47.503Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 24,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-21",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:47.580Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 23,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-22",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:47.652Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 20,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-23",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:47.775Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 18,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-24",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:47.848Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 20,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-25",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:47.910Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 22,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-26",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:47.977Z",
+      "cpuTimeMs": 8,
+      "wallTimeMs": 27,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-27",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:48.084Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 24,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-28",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:48.198Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 15,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-varied-29",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:48.419Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 17,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-head-30",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:48.692Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 15,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-head-31",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:49.175Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 22,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-head-32",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:50.758Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 20,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-head-33",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:52.393Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 31,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-head-34",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:54.168Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 22,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-head-35",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:56.297Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 24,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-head-36",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:57.788Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 19,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-head-37",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:58.867Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 25,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-head-38",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:42:59.934Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 22,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-head-39",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:43:01.681Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 23,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-concurrent-1",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:43:03.098Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 33,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-concurrent-0",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:43:03.100Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 26,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-concurrent-5",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:43:03.111Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 33,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-concurrent-4",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:43:03.111Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 33,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-concurrent-3",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:43:03.115Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 42,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-concurrent-6",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:43:03.123Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 43,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-concurrent-7",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:43:03.128Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 47,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "primed2-b-concurrent-2",
+      "worker": "ratatoskr-preview-cpu-20261030-primed2-b",
+      "version": "89ca9930-960c-4321-bc3f-2ad986f1d3b1",
+      "timestamp": "2026-10-30T09:43:03.129Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 54,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-chinese-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:45:59.749Z",
+      "cpuTimeMs": 11,
+      "wallTimeMs": 97,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-arabic-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:00.088Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 25,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-marks-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:00.260Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 19,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-mixed-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:00.520Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 29,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-diacritics-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:00.602Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 25,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-long-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:00.785Z",
+      "cpuTimeMs": 4,
+      "wallTimeMs": 37,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-chinese-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:00.909Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 19,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-arabic-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:00.977Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 21,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-marks-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:01.074Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 30,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-mixed-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:01.147Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 25,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-diacritics-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:01.224Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 24,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-long-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:01.329Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 32,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-chinese-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:01.459Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 26,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-arabic-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:01.536Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 23,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-marks-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:01.755Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 21,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-mixed-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:01.889Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 27,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-diacritics-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:02.015Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 21,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-settings-long-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:02.120Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 26,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-chinese-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:03.672Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 25,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-chinese-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:03.816Z",
+      "cpuTimeMs": 4,
+      "wallTimeMs": 17,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-chinese-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:03.933Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 22,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-chinese-get-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:04.049Z",
+      "cpuTimeMs": 12,
+      "wallTimeMs": 32,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-chinese-get-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:04.205Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 19,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-chinese-get-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:04.325Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 19,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-chinese-get-3",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:04.407Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 21,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-chinese-get-4",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:04.490Z",
+      "cpuTimeMs": 4,
+      "wallTimeMs": 21,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-chinese-get-5",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:04.563Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 22,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-chinese-get-6",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:04.677Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 22,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-chinese-get-7",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:04.748Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 24,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-arabic-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:06.244Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 21,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-arabic-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:06.396Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 23,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-arabic-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:06.509Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 20,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-arabic-get-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:06.586Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 143,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-arabic-get-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:06.779Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 21,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-arabic-get-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:06.849Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 18,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-arabic-get-3",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:06.918Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 15,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-arabic-get-4",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:06.993Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 16,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-arabic-get-5",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:07.067Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 16,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-arabic-get-6",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:07.203Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 19,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-arabic-get-7",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:07.267Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 15,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-mixed-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:08.453Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 20,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-mixed-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:08.550Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 18,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-mixed-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:08.656Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 18,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-mixed-get-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:08.763Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 56,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-mixed-get-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:08.856Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 18,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-mixed-get-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:08.939Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 22,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-mixed-get-3",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:09.012Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 26,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-mixed-get-4",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:09.075Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 16,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-mixed-get-5",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:09.155Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 23,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-mixed-get-6",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:09.312Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 17,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-mixed-get-7",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:09.387Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 15,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-diacritics-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:11.524Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 21,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-diacritics-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:11.707Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 17,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-diacritics-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:11.922Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 20,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-diacritics-get-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:11.992Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 20,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-diacritics-get-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:12.074Z",
+      "cpuTimeMs": 9,
+      "wallTimeMs": 23,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-diacritics-get-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:12.171Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 15,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-diacritics-get-3",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:12.242Z",
+      "cpuTimeMs": 5,
+      "wallTimeMs": 20,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-diacritics-get-4",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:12.308Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 18,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-diacritics-get-5",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:12.496Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 16,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-diacritics-get-6",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:12.575Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 23,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-diacritics-get-7",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:12.641Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 18,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-long-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:16.254Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 181,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-long-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:16.370Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 15,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "mutation-image-long-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:16.486Z",
+      "cpuTimeMs": 3,
+      "wallTimeMs": 18,
+      "status": 204,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-long-get-0",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:16.643Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 15,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-long-get-1",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:16.700Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 15,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-long-get-2",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:16.846Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 16,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-long-get-3",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:16.988Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 16,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-long-get-4",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:17.067Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 16,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-long-get-5",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:17.145Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 15,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-long-get-6",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:17.210Z",
+      "cpuTimeMs": 1,
+      "wallTimeMs": 15,
+      "status": 200,
+      "outcome": "ok"
+    },
+    {
+      "label": "adverse-long-get-7",
+      "worker": "ratatoskr-preview-cpu-20261030-mutations",
+      "version": "bd939c42-936b-4971-ae62-8bec704edf89",
+      "timestamp": "2026-10-30T09:46:17.297Z",
+      "cpuTimeMs": 2,
+      "wallTimeMs": 17,
+      "status": 200,
+      "outcome": "ok"
+    }
+  ]
+}
