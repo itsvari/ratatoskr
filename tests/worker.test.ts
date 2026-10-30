@@ -152,6 +152,22 @@ describe("Worker request flow", () => {
     expect(outbound).not.toHaveBeenCalled();
   });
 
+  it("retains the previous image when an edit's audit write rolls back", async () => {
+    await create("notes");
+    const before = new Uint8Array(await (await SELF.fetch(`${ORIGIN}/_preview/notes.png`)).arrayBuffer());
+    await env.DB.prepare("CREATE TRIGGER reject_image_edit BEFORE INSERT ON audit_events BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END").run();
+    try {
+      const response = await SELF.fetch(`${ORIGIN}/api/links/notes`, { method: "PATCH",
+        headers: { Origin: ORIGIN, "Content-Type": "application/json" }, body: JSON.stringify({ title: "Rolled back" }) });
+      expect(response.status).toBe(503);
+      const after = await SELF.fetch(`${ORIGIN}/_preview/notes.png`);
+      expect(after.status).toBe(200);
+      expect(new Uint8Array(await after.arrayBuffer())).toEqual(before);
+    } finally {
+      await env.DB.prepare("DROP TRIGGER reject_image_edit").run();
+    }
+  });
+
   it("rejects delayed image uploads after edits or deletion and never serves a previous body", async () => {
     const link = await create("notes");
     const pixels = new Uint8Array(PREVIEW_IMAGE_WIDTH * PREVIEW_IMAGE_HEIGHT * 4);

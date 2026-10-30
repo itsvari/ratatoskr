@@ -4,6 +4,14 @@ import { dirname } from "node:path";
 import { parseArgs } from "node:util";
 import { z } from "zod";
 
+const REPEATED_IMAGE_SAMPLES = 20;
+const VARIED_IMAGE_SAMPLES = 30;
+const HEAD_SAMPLES = 10;
+const CONCURRENT_IMAGE_SAMPLES = 8;
+const FIRST_CONCURRENT_SLUG = 31;
+const READINESS_RETRY_MS = 1000;
+const MILLISECONDS_PER_HOUR = 60 * 60 * 1000;
+
 const { values } = parseArgs({ options: {
   origin: { type: "string" }, worker: { type: "string" }, phase: { type: "string", default: "stored" },
   output: { type: "string", default: "verification-artifacts/deployed-preview.json" },
@@ -16,23 +24,33 @@ if (!new URL(origin).hostname.startsWith(`${worker}.`) || !new URL(origin).hostn
 }
 const phase = z.string().regex(/^[a-z0-9-]+$/).parse(values.phase);
 const startedAt = Date.now();
-const samples: { readonly kind: string; readonly sequence: number; readonly status: number; readonly bytes: number }[] = [];
+const samples: { readonly kind: string; readonly sequence: number; readonly status: number; readonly bytes: number; readonly isolate: string | null; readonly isolateSequence: string | null }[] = [];
+let nextSequence = 0;
 async function request(index: number, kind: string, method = "GET") {
-  const sequence = samples.length;
+  const sequence = nextSequence++;
   const response = await fetch(`${origin}/_preview/sample-${index}.png?case=${phase}-${kind}-${sequence}`, { method });
   const bytes = await response.arrayBuffer();
-  samples.push({ kind, sequence, status: response.status, bytes: bytes.byteLength });
+  const sample = { kind, sequence, status: response.status, bytes: bytes.byteLength,
+    isolate: response.headers.get("X-Profile-Isolate"), isolateSequence: response.headers.get("X-Profile-Sequence") };
+  samples.push(sample);
+  return { ...sample, platformMiss: response.status === 404 && response.headers.get("Cache-Control") !== "no-store" };
 }
 if (!values["events-only"]) {
-  await request(0, "first");
-  for (let index = 0; index < 20; index += 1) await request(0, "repeat");
-  for (let index = 1; index <= 30; index += 1) await request(index, "varied");
-  for (let index = 0; index < 10; index += 1) await request(index, "head", "HEAD");
-  await Promise.all(Array.from({ length: 8 }, (_, index) => request(index + 31, "concurrent")));
+  const maximumReadinessAttempts = 30;
+  for (let attempt = 0; attempt < maximumReadinessAttempts; attempt += 1) {
+    const first = await request(0, "first");
+    if (!first.platformMiss) break;
+    if (attempt === maximumReadinessAttempts - 1) throw new Error("The staging hostname did not become ready.");
+    await new Promise((resolve) => setTimeout(resolve, READINESS_RETRY_MS));
+  }
+  for (let index = 0; index < REPEATED_IMAGE_SAMPLES; index += 1) await request(0, "repeat");
+  for (let index = 1; index <= VARIED_IMAGE_SAMPLES; index += 1) await request(index, "varied");
+  for (let index = 0; index < HEAD_SAMPLES; index += 1) await request(index, "head", "HEAD");
+  await Promise.all(Array.from({ length: CONCURRENT_IMAGE_SAMPLES }, (_, index) => request(index + FIRST_CONCURRENT_SLUG, "concurrent")));
   await request(0, "revisit");
 }
 const query = { queryId: "preview-performance", view: "events", limit: 1000,
-  timeframe: { from: startedAt - 60 * 60 * 1000, to: Date.now() },
+  timeframe: { from: startedAt - MILLISECONDS_PER_HOUR, to: Date.now() },
   parameters: { limit: 1000, filters: [{ key: "$workers.scriptName", operation: "eq", type: "string", value: worker }] } };
 await mkdir(dirname(values.output!), { recursive: true });
 const queryPath = `${values.output}.query.json`;
@@ -51,7 +69,7 @@ const invocations = parsed.events.events.flatMap(({ $workers: event }) => {
   if (event.cpuTimeMs === undefined || !event.event) return [];
   const label = new URL(event.event.request.url).searchParams.get("case");
   if (!label?.startsWith(`${phase}-`)) return [];
-  return [{ label, cpuMs: event.cpuTimeMs, wallMs: event.wallTimeMs, outcome: event.outcome,
+  return [{ label, cpuTimeMs: event.cpuTimeMs, wallTimeMs: event.wallTimeMs, outcome: event.outcome,
     status: event.event.response?.status, version: event.scriptVersion?.id }];
 });
 await writeFile(values.output!, JSON.stringify({ recordedAt: new Date().toISOString(), origin, worker, phase,

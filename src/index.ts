@@ -238,6 +238,7 @@ application.onError((error, context) => {
 
 // compile the fixed routes within the startup budget rather than the first request's CPU budget.
 application.router.match("GET", "/_health");
+// validate the deployment at startup; requests still validate their current bindings after updates.
 loadConfiguration(environment);
 
 export default { fetch: application.fetch } satisfies ExportedHandler<Bindings>;
