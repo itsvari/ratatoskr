@@ -18,7 +18,7 @@ The existing D1 service remains the only storage dependency. [D1 Free limits](ht
 
 ## Deployed staging method
 
-All deployments used uniquely named `ratatoskr-preview-cpu-20261030*` Workers on `workers.dev`, one isolated APAC D1 database and synthetic example.com destinations. Production code, data, routes, domains, Access applications and billing were not changed. Staging management paths denied unauthenticated access. No real Access login was exercised in staging.
+All deployments used uniquely named `ratatoskr-preview-cpu-20261030*` Workers on `workers.dev`, one isolated APAC D1 database and synthetic example.com destinations. Production code, data, routes, domains, Access applications and billing were not changed. Staging management paths denied unauthenticated access. No real Access login was exercised in staging. After measurement, all 19 temporary Workers and the isolated database were deleted. Follow-up account listings confirmed that no staging resources remained and unrelated Worker IDs/deployment timestamps were unchanged.
 
 CPU values below come from Workers Observability invocation `$workers.cpuTimeMs`, queried with the existing `cf` login. They include application routing, configuration, primary-D1 protocol handling and response generation. `$workers.wallTimeMs` is retained separately in the evidence. Client latency was never substituted for CPU. Values are reported in integer milliseconds. Logs arrived late and were fetched again after traffic ended.
 
