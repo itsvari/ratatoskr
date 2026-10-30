@@ -211,10 +211,10 @@ application.get("*", async (context) => {
   const preview = url.origin === configuration.previewOrigin || requestedSlug.endsWith("+");
   const slug = parseCustomSlug(requestedSlug.endsWith("+") ? requestedSlug.slice(0, -1) : requestedSlug);
   if (!slug) return renderUnavailable(404);
+  if (imageSlug) return renderPreviewImage(context.env.DB, slug, configuration.shortOrigin, { head: context.req.method === "HEAD" });
   const link = await getLink(context.env.DB, slug);
   if (!link) return renderUnavailable(404);
   if (link.status !== "active" || (link.expiresAt !== null && Date.parse(link.expiresAt) <= Date.now())) return renderUnavailable(410);
-  if (imageSlug) return renderPreviewImage(context.env.DB, link, configuration.shortOrigin, { head: context.req.method === "HEAD" });
   if (preview) return renderPreview(link, configuration.shortOrigin);
   context.header("Vary", "User-Agent");
   if (isPreviewCrawler(context.req.header("User-Agent") ?? "")
