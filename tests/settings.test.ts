@@ -13,12 +13,12 @@ const administrator = { subject: "settings-owner", email: "owner@example.com" };
 
 beforeEach(async () => {
   await env.DB.batch([
-    env.DB.prepare("DELETE FROM preview_images"),
+    env.DB.prepare("UPDATE preview_branding SET segment = NULL WHERE singleton = 1"), env.DB.prepare("DELETE FROM preview_images"),
     env.DB.prepare("DELETE FROM site_settings_audit"),
     env.DB.prepare("DELETE FROM audit_events"),
     env.DB.prepare("DELETE FROM links"),
     env.DB.prepare("DELETE FROM administrators"),
-    env.DB.prepare("UPDATE site_settings SET display_name = 'Ratatoskr', preview_header = NULL WHERE singleton = 1"),
+    env.DB.prepare("UPDATE site_settings SET display_name = 'Ratatoskr' WHERE singleton = 1"),
   ]);
 });
 
@@ -73,7 +73,7 @@ describe("Site settings", () => {
       headers: { Origin: ORIGIN, "Content-Type": "application/json" }, body: JSON.stringify({ displayName: "Unrendered name" }) });
     expect(response.status).toBe(400);
     expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME });
-    expect(await env.DB.prepare("SELECT preview_header FROM site_settings WHERE singleton = 1").first("preview_header")).toBeNull();
+    expect(await env.DB.prepare("SELECT segment FROM preview_branding WHERE singleton = 1").first("segment")).toBeNull();
   });
 
   it("requires Access on the management host and hides settings on public hosts", async () => {

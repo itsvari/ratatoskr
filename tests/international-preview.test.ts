@@ -27,7 +27,7 @@ async function renderPreviewImage(link: Link, shortOrigin: string, name: string)
 
 beforeEach(async () => {
   await env.DB.batch([
-    env.DB.prepare("DELETE FROM preview_images"), env.DB.prepare("DELETE FROM site_settings_audit"), env.DB.prepare("DELETE FROM audit_events"),
+    env.DB.prepare("UPDATE preview_branding SET segment = NULL WHERE singleton = 1"), env.DB.prepare("DELETE FROM preview_images"), env.DB.prepare("DELETE FROM site_settings_audit"), env.DB.prepare("DELETE FROM audit_events"),
     env.DB.prepare("DELETE FROM links"), env.DB.prepare("DELETE FROM administrators"),
     env.DB.prepare("UPDATE site_settings SET display_name = 'Ratatoskr' WHERE singleton = 1"),
   ]);
