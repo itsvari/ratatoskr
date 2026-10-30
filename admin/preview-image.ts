@@ -9,7 +9,7 @@ import { renderPreviewSvg } from "../src/preview-template";
 let ready: Promise<ArrayBuffer> | undefined;
 let wasmReady: Promise<void> | undefined;
 async function loadRenderer(): Promise<ArrayBuffer> {
-  wasmReady ??= initWasm(fetch(rendererUrl));
+  wasmReady ??= initWasm(fetch(rendererUrl)).catch((error: unknown) => { wasmReady = undefined; throw error; });
   await wasmReady;
   const response = await fetch(fontUrl);
   if (!response.ok) throw new Error("Could not load the preview font. Try saving again.");

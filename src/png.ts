@@ -39,6 +39,14 @@ export function encodePng(pixels: Uint8Array, width: number, height: number): Ui
   return png;
 }
 
+const previewDimensions = new Uint8Array(13);
+previewDimensions.set(uint32(PREVIEW_IMAGE_WIDTH));
+previewDimensions.set(uint32(PREVIEW_IMAGE_HEIGHT), 4);
+previewDimensions[8] = 8;
+previewDimensions[9] = 6;
+const previewPrefix = Buffer.concat([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), ...chunk("IHDR", previewDimensions)]);
+const previewSuffix = Buffer.concat(chunk("IEND", new Uint8Array()));
+
 // independently flushed raw DEFLATE sections share one zlib stream, so branding changes never recompress link pixels.
 export function assemblePreviewPng(header: PreviewSegment, body: PreviewSegment): Uint8Array<ArrayBuffer> {
   const headerBytes = Buffer.from(header.compressed, "base64");
@@ -47,13 +55,7 @@ export function assemblePreviewPng(header: PreviewSegment, body: PreviewSegment)
   const checksum = combineAdler32(header.checksum, body.checksum,
     (PREVIEW_IMAGE_HEIGHT - PREVIEW_HEADER_HEIGHT) * PREVIEW_SCANLINE_BYTES);
   const compressed = Buffer.concat([new Uint8Array([0x78, 0x01]), headerBytes, bodyBytes, finalBlock, uint32(checksum)]);
-  const dimensions = new Uint8Array(13);
-  dimensions.set(uint32(PREVIEW_IMAGE_WIDTH));
-  dimensions.set(uint32(PREVIEW_IMAGE_HEIGHT), 4);
-  dimensions[8] = 8;
-  dimensions[9] = 6;
-  return Buffer.concat([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), ...chunk("IHDR", dimensions),
-    ...chunk("IDAT", compressed), ...chunk("IEND", new Uint8Array())]);
+  return Buffer.concat([previewPrefix, ...chunk("IDAT", compressed), previewSuffix]);
 }
 
 function combineAdler32(first: number, second: number, secondLengthBytes: number): number {

@@ -15,3 +15,6 @@ export const previewUploadSchema = z.object({
   title: z.string(), destination: z.string(), origin: z.url(), segment: previewSegmentSchema,
 }).strict();
 export type PreviewUpload = z.infer<typeof previewUploadSchema>;
+
+// writes validate the wire encoding; primary-D1 reads only need to check the persisted shape.
+export const storedPreviewSegmentSchema = previewSegmentSchema.extend({ compressed: z.string() });

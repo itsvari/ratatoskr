@@ -1,10 +1,11 @@
 import { z } from "zod";
 import type { Link } from "../shared/contracts";
-import { previewSegmentSchema, type PreviewUpload, type PreviewSegment } from "../shared/preview-image";
+import { storedPreviewSegmentSchema, type PreviewUpload, type PreviewSegment } from "../shared/preview-image";
 import { assemblePreviewPng } from "./png";
 import { ApplicationError } from "./errors";
 import defaultHeader from "./assets/preview-header.json";
-export { renderPreviewSvg } from "./preview-template";
+
+const storedImageSchema = z.object({ segment: z.string() });
 
 export async function storePreviewImage(database: D1Database, slug: string, upload: PreviewUpload): Promise<void> {
   const result = await database.withSession("first-primary").prepare(`
@@ -32,8 +33,8 @@ export async function renderPreviewImage(database: D1Database, link: Link, short
     });
   }
   if (options.head) return new Response(null, { headers: { "Content-Type": "image/png", "X-Robots-Tag": "noindex", "Cache-Control": "no-store" } });
-  const { segment } = z.object({ segment: z.string() }).parse(row);
-  const body = previewSegmentSchema.parse(JSON.parse(segment));
+  const { segment } = storedImageSchema.parse(row);
+  const body = storedPreviewSegmentSchema.parse(JSON.parse(segment));
   return new Response(assemblePreviewPng(header, body), {
     headers: { "Content-Type": "image/png", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" },
   });

@@ -235,4 +235,7 @@ application.onError((error, context) => {
   return renderUnavailable(503);
 });
 
+// compile the fixed routes within the startup budget rather than the first request's CPU budget.
+application.router.match("GET", "/_health");
+
 export default { fetch: application.fetch } satisfies ExportedHandler<Bindings>;
