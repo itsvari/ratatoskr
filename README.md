@@ -27,7 +27,7 @@ bun run setup --domain example.com --admin-subdomain --preview-subdomain
 bun run deploy
 ```
 
-Setup creates or reuses D1, a Cloudflare identity provider and a private Access application. It writes ignored deployment configuration files. Deployment applies migrations, builds the application, publishes custom domains and checks public routing and Access protection.
+Setup creates or reuses D1, a Cloudflare identity provider and a private Access application. It writes ignored deployment configuration files. Deployment captures one configuration, builds and validates isolated output, applies migrations, publishes custom domains and checks public routing and Access protection.
 
 If `cf` is outside your PATH, set `CF_EXECUTABLE` to its absolute path. For multiple accounts, pass `--account-id`. To use the main hostname's `/admin/` path, omit `--admin-subdomain`.
 
@@ -49,19 +49,20 @@ The interface defaults to pure-black dark mode, with saved Light and System opti
 
 Open **Settings** in the admin panel, enter a **Display name**, and select **Save changes**. The shared name appears in the admin header and browser title, public pages, link preview metadata, generated social images and export filenames. Names can contain up to 48 characters and must be a non-empty single line. **Use default** fills in “Ratatoskr”; save to apply it.
 
-The setting is stored in D1 and applies to new requests immediately, without rebuilding or redeploying. Existing deployments need migration `0002_site_settings.sql`, which the deployment script applies automatically. Already open admin panels pick up another administrator's changes on reload; sharing services may retain images they fetched earlier.
+The setting is stored in D1 and applies to new requests immediately, without rebuilding or redeploying. Existing deployments need migration `0003_site_settings.sql`, which the deployment script applies automatically. Already open admin panels pick up another administrator's changes on reload; sharing services may retain images they fetched earlier.
 
 Generated cards bundle Inter, Arabic shaping fonts and paged CJK fallbacks. Chinese, Arabic, mixed-script names and Arabic diacritics use local font data; no external font or rendering service is used. Accepted names are unchanged. The bundled collection is not universal Unicode/colour-emoji coverage; additional scripts may need another bundled font. Font sources and regeneration are documented in [src/assets/README.md](src/assets/README.md), and bundle, memory and CPU observations are in [the performance report](docs/preview-performance.md).
 
 ## Verify changes
 
 ```sh
+bunx playwright install chromium
 bun run verify
 bun audit
 bun run verify:deployment
 ```
 
-The tests run in the Workers runtime with real local D1. They cover concurrent claims, transaction rollback, deletion races, revocation, expiry, previews, Access signatures, origin checks and slug screening. Production sign-in still needs a browser check.
+Install Playwright Chromium once per development environment. `bun run verify` runs type checks, Workers tests with real local D1, Node script tests, browser regressions against an isolated local database, and a production build. The tests cover concurrent claims, creation retries, transaction rollback, deletion races, revocation, expiry, previews, Access signatures, origin checks and slug screening. Production sign-in still needs a browser check. See [the state-machine audit](docs/state-machines.md) for transition tables, confirmed failures and their regression coverage.
 
 The lockfile refreshes direct and compatible transitive packages, including the current workerd runtime. Overrides update pinned tooling packages, keep Cloudflare tooling's Undici on the patched 7.x line and Zod on 4.6.7 or later until their upstream pins catch up. Recheck `bun audit` when updating dependencies. Transitive packages requiring an incompatible major upgrade remain on their upstream-supported lines.
 
@@ -73,13 +74,13 @@ Private creation, Access and application rate limits reduce abuse. Worker rate l
 
 Generated-slug screening checks substrings and coarse phonetic variants across syllable boundaries. The blocklist covers English and selected common romanisations. It deliberately rejects some benign candidates and cannot guarantee neutrality in every language. Custom slugs are administrator-chosen.
 
-Explicit destination previews display the stored URL without fetching external content. They include Open Graph and Twitter metadata pointing to a 600 × 315 PNG at `/_preview/slug.png`, generated from the stored title, destination hostname and shortlink using the preview page's black and purple styling. The font and renderer are bundled with the Worker; image generation uses no external services.
+Explicit destination previews display the stored URL without fetching external content. They include Open Graph and Twitter metadata pointing to a 600 × 315 PNG at `/_preview/slug.png`, generated from the stored title, destination hostname and shortlink using the preview page's black and purple styling. The admin browser renders with bundled fonts and uploads compressed image sections, which the Worker validates before storing. Image generation uses no external services.
 
 On plain shortlinks, recognised sharing crawlers check the destination's HTML for a non-empty HTTP(S) Open Graph or Twitter image address. The check uses no visitor credentials, takes at most two seconds, reads at most 64 KiB and follows at most three redirects. IP literals, local/internal names, non-standard ports and the shortener's own hosts are skipped. Missing metadata, errors and timeouts select the generated card. Destination images are not downloaded or verified. Other user agents continue to receive the usual redirect.
 
 Preview pages and images read current link data from primary D1 and use `no-store`, so edits, expiry, revocation and deletion apply to new requests. Sharing services can retain cards they have already fetched. Previews do not verify a destination's safety or any later redirects.
 
-The renderer uses native fast PNG compression and a bounded in-isolate cache of derived images (eight entries, at most 512 KiB). Image requests still validate primary D1 before consulting it; its key includes the current link data and rendered template. HEAD requests validate availability without rasterising. This does not cache redirects or link availability. See [local performance measurements and remaining Workers Free limitations](docs/preview-performance.md) before deployment.
+Generated images assemble stored compressed sections after checking link availability in D1. HEAD requests check availability without assembling the image. See [local performance measurements and remaining Workers Free limitations](docs/preview-performance.md) before deployment.
 
 ## Source map
 
