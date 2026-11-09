@@ -55,7 +55,9 @@ import {
   createLinkSchema,
   linkExportFilename,
   siteSettingsSchema,
+  siteSettingsPatchSchema,
   updateLinkSchema,
+  type CreateLink,
   type Link,
   type LinkStatus,
   type Session,
@@ -108,6 +110,7 @@ type ListState =
   | { readonly kind: "failed"; readonly message: string }
   | {
       readonly kind: "ready";
+      readonly generation: number;
       readonly links: readonly Link[];
       readonly nextCursor: string | null;
       readonly loadingMore: boolean;
@@ -218,8 +221,8 @@ function minimumExpiryInputValue(): string {
   return toLocalInputValue(new Date(Date.now() + MINIMUM_EXPIRY_LEAD_MILLISECONDS).toISOString());
 }
 
-function isExpired(link: Link): boolean {
-  return link.expiresAt !== null && Date.parse(link.expiresAt) <= Date.now();
+function isExpired(link: Link, now: number): boolean {
+  return link.expiresAt !== null && Date.parse(link.expiresAt) <= now;
 }
 
 const FIELD_LABELS: Readonly<Record<string, string>> = {
@@ -275,16 +278,21 @@ function App(): ReactNode {
   const [displayName, setDisplayName] = useState(document.documentElement.dataset.displayName ?? DEFAULT_DISPLAY_NAME);
   const [notice, setNotice] = useState<Notice | null>(null);
   const noticeCounter = useRef(0);
+  const sessionController = useRef<AbortController | null>(null);
 
-  const loadSession = useCallback((signal?: AbortSignal) => {
+  const loadSession = useCallback(() => {
+    sessionController.current?.abort();
+    const controller = new AbortController();
+    sessionController.current = controller;
     setSessionState({ kind: "loading" });
-    fetchSession(signal)
+    fetchSession(controller.signal)
       .then((session) => {
+        if (controller.signal.aborted || sessionController.current !== controller) return;
         setDisplayName(session.displayName);
         setSessionState({ kind: "ready", session });
       })
       .catch((error: unknown) => {
-        if (isAbortError(error)) return;
+        if (controller.signal.aborted || sessionController.current !== controller || isAbortError(error)) return;
         if (error instanceof SessionExpiredError) {
           setSessionState({ kind: "expired" });
           return;
@@ -299,9 +307,8 @@ function App(): ReactNode {
   }, [displayName]);
 
   useEffect(() => {
-    const controller = new AbortController();
-    loadSession(controller.signal);
-    return () => controller.abort();
+    loadSession();
+    return () => sessionController.current?.abort();
   }, [loadSession]);
 
   useEffect(() => {
@@ -319,6 +326,7 @@ function App(): ReactNode {
     (error) => {
       if (isAbortError(error)) return;
       if (error instanceof SessionExpiredError) {
+        sessionController.current?.abort();
         setSessionState({ kind: "expired" });
         return;
       }
@@ -513,6 +521,22 @@ function Workspace({
   const [exporting, setExporting] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const loadMoreController = useRef<AbortController | null>(null);
+  const firstController = useRef<AbortController | null>(null);
+  const generation = useRef(0);
+  const invalidate = useCallback(() => {
+    generation.current += 1;
+    firstController.current?.abort();
+    loadMoreController.current?.abort();
+    setListState({ kind: "loading" });
+  }, []);
+  const refresh = useCallback(() => {
+    invalidate();
+    setReloadToken((token) => token + 1);
+  }, [invalidate]);
+  const reportWorkspaceError = useCallback<ReportError>((error) => {
+    if (error instanceof SessionExpiredError) invalidate();
+    reportError(error);
+  }, [invalidate, reportError]);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchId = useId();
 
@@ -520,21 +544,27 @@ function Workspace({
   const shortHost = hostOf(session.shortOrigin);
 
   useEffect(() => {
+    invalidate();
+    const currentGeneration = generation.current;
     const controller = new AbortController();
-    loadMoreController.current?.abort();
-    setListState({ kind: "loading" });
+    firstController.current = controller;
+    const isCurrent = (): boolean => !controller.signal.aborted && generation.current === currentGeneration && firstController.current === controller;
     fetchLinks({ search, status, cursor: null, signal: controller.signal })
-      .then((page) => setListState({ kind: "ready", links: page.links, nextCursor: page.nextCursor, loadingMore: false }))
+      .then((page) => {
+        if (!isCurrent()) return;
+        setListState({ kind: "ready", generation: currentGeneration, links: page.links, nextCursor: page.nextCursor, loadingMore: false });
+      })
       .catch((error: unknown) => {
-        if (isAbortError(error)) return;
+        if (!isCurrent() || isAbortError(error)) return;
         if (error instanceof SessionExpiredError) {
-          reportError(error);
+          invalidate();
+          reportWorkspaceError(error);
           return;
         }
         setListState({ kind: "failed", message: messageFromError(error) });
       });
-    return () => controller.abort();
-  }, [search, status, reloadToken, reportError]);
+    return invalidate;
+  }, [search, status, reloadToken, reportWorkspaceError, invalidate]);
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent): void => {
@@ -557,18 +587,22 @@ function Workspace({
   }, []);
 
   const loadMore = (): void => {
-    if (listState.kind !== "ready" || listState.nextCursor === null || listState.loadingMore) return;
+    if (listState.kind !== "ready" || listState.generation !== generation.current || listState.nextCursor === null || listState.loadingMore) return;
     const controller = new AbortController();
     loadMoreController.current = controller;
     const cursor = listState.nextCursor;
+    const currentGeneration = generation.current;
+    const isCurrent = (): boolean => !controller.signal.aborted && generation.current === currentGeneration && loadMoreController.current === controller;
     setListState({ ...listState, loadingMore: true });
     fetchLinks({ search, status, cursor, signal: controller.signal })
       .then((page) => {
+        if (!isCurrent()) return;
         setListState((current) => {
-          if (current.kind !== "ready") return current;
+          if (current.kind !== "ready" || current.generation !== currentGeneration) return current;
           const known = new Set(current.links.map((link) => link.slug));
           return {
             kind: "ready",
+            generation: currentGeneration,
             links: [...current.links, ...page.links.filter((link) => !known.has(link.slug))],
             nextCursor: page.nextCursor,
             loadingMore: false,
@@ -576,30 +610,11 @@ function Workspace({
         });
       })
       .catch((error: unknown) => {
-        if (isAbortError(error)) return;
-        setListState((current) => (current.kind === "ready" ? { ...current, loadingMore: false } : current));
-        reportError(error);
+        if (!isCurrent() || isAbortError(error)) return;
+        if (error instanceof SessionExpiredError) invalidate();
+        setListState((current) => (current.kind === "ready" && current.generation === currentGeneration ? { ...current, loadingMore: false } : current));
+        reportWorkspaceError(error);
       });
-  };
-
-  const matchesFilter = (link: Link): boolean => status === null || link.status === status;
-
-  const replaceLink = (updated: Link): void => {
-    setListState((current) => {
-      if (current.kind !== "ready") return current;
-      return {
-        ...current,
-        links: matchesFilter(updated)
-          ? current.links.map((link) => (link.slug === updated.slug ? updated : link))
-          : current.links.filter((link) => link.slug !== updated.slug),
-      };
-    });
-  };
-
-  const removeLink = (slug: string): void => {
-    setListState((current) =>
-      current.kind === "ready" ? { ...current, links: current.links.filter((link) => link.slug !== slug) } : current,
-    );
   };
 
   const regeneratePreview = async (link: Link): Promise<void> => {
@@ -607,30 +622,23 @@ function Workspace({
       await saveLinkPreview(link);
       announce({ tone: "success", message: `Preview image ready for ${link.slug}.` });
     } catch (error) {
-      if (error instanceof SessionExpiredError) { reportError(error); return; }
+      if (error instanceof SessionExpiredError) { reportWorkspaceError(error); return; }
       announce({ tone: "error", message: `Link saved, but its image is unavailable. Use Regenerate preview image to retry. ${messageFromError(error)}` });
     }
   };
 
   const handleCreated = (link: Link): void => {
     void regeneratePreview(link);
-    // only splice into the visible page when it would have appeared there anyway
-    if (search === "" && matchesFilter(link)) {
-      setListState((current) =>
-        current.kind === "ready"
-          ? { ...current, links: [link, ...current.links.filter((existing) => existing.slug !== link.slug)] }
-          : current,
-      );
-    }
+    refresh();
   };
 
   const restoreLink = async (link: Link): Promise<void> => {
     try {
-      const updated = await updateLink({ slug: link.slug, changes: { status: "active" } });
-      replaceLink(updated);
+      await updateLink({ slug: link.slug, changes: { status: "active" } });
+      refresh();
       announce({ tone: "success", message: `Restored ${shortHost}/${link.slug}.` });
     } catch (error) {
-      reportError(error);
+      reportWorkspaceError(error);
     }
   };
 
@@ -638,14 +646,14 @@ function Workspace({
     const address = `${shortHost}/${pending.link.slug}`;
     switch (pending.action) {
       case "revoke": {
-        const updated = await updateLink({ slug: pending.link.slug, changes: { status: "revoked" } });
-        replaceLink(updated);
+        await updateLink({ slug: pending.link.slug, changes: { status: "revoked" } });
+        refresh();
         announce({ tone: "success", message: `Revoked ${address}.` });
         return;
       }
       case "delete": {
         await deleteLink(pending.link.slug);
-        removeLink(pending.link.slug);
+        refresh();
         announce({ tone: "success", message: `Deleted ${address}.` });
         return;
       }
@@ -672,7 +680,7 @@ function Workspace({
       window.setTimeout(() => URL.revokeObjectURL(url), OBJECT_URL_REVOKE_DELAY_MILLISECONDS);
       announce({ tone: "success", message: `Exported ${links.length} ${links.length === 1 ? "link" : "links"}.` });
     } catch (error) {
-      reportError(error);
+      reportWorkspaceError(error);
     } finally {
       setExporting(false);
     }
@@ -789,7 +797,7 @@ function Workspace({
           search={search}
           statusFilter={statusFilter}
           actions={actions}
-          onRetry={() => setReloadToken((token) => token + 1)}
+          onRetry={refresh}
           onLoadMore={loadMore}
         />
       </main>
@@ -805,7 +813,7 @@ function Workspace({
               setSettingsOpen(false);
               announce({ tone: "success", message: "Saved site settings." });
             }}
-            onSessionExpired={reportError}
+            onSessionExpired={reportWorkspaceError}
           />
         ) : null}
       </Dialog>
@@ -816,7 +824,7 @@ function Workspace({
         announce={announce}
         onOpenChange={setCreating}
         onCreated={handleCreated}
-        onSessionExpired={reportError}
+        onSessionExpired={reportWorkspaceError}
       />
 
       <Dialog
@@ -832,12 +840,12 @@ function Workspace({
             session={session}
             onClose={() => setEditingLink(null)}
             onSaved={(updated) => {
-              replaceLink(updated);
+              refresh();
               void regeneratePreview(updated);
               setEditingLink(null);
               announce({ tone: "success", message: `Saved ${shortHost}/${updated.slug}.` });
             }}
-            onSessionExpired={reportError}
+            onSessionExpired={reportWorkspaceError}
           />
         ) : null}
       </Dialog>
@@ -858,7 +866,7 @@ function Workspace({
               await confirmPending(confirmation);
               setConfirmation(null);
             }}
-            onSessionExpired={reportError}
+            onSessionExpired={reportWorkspaceError}
           />
         ) : null}
       </Dialog>
@@ -895,6 +903,25 @@ function LinkList({
   readonly onRetry: () => void;
   readonly onLoadMore: () => void;
 }): ReactNode {
+  const [now, setNow] = useState(Date.now);
+  const links = state.kind === "ready" ? state.links : null;
+  const currentTime = Math.max(now, Date.now());
+  useEffect(() => {
+    const update = (): void => setNow(Date.now());
+    window.addEventListener("focus", update);
+    document.addEventListener("visibilitychange", update);
+    const deadlines = (links ?? []).filter((link) => link.expiresAt !== null)
+      .map((link) => Date.parse(link.expiresAt ?? ""))
+      .filter((deadline) => deadline > currentTime);
+    const maximumDelayMilliseconds = 2_147_483_647;
+    const delay = deadlines.length === 0 ? null : Math.min(maximumDelayMilliseconds, Math.max(0, Math.min(...deadlines) - currentTime));
+    const timer = delay === null ? null : window.setTimeout(update, delay);
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+      window.removeEventListener("focus", update);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, [links, currentTime]);
   switch (state.kind) {
     case "loading":
       return (
@@ -926,8 +953,8 @@ function LinkList({
       }
       return (
         <div className="space-y-4">
-          <LinkTable links={state.links} session={session} actions={actions} />
-          <LinkCards links={state.links} session={session} actions={actions} />
+          <LinkTable links={state.links} session={session} actions={actions} now={currentTime} />
+          <LinkCards links={state.links} session={session} actions={actions} now={currentTime} />
           {state.nextCursor !== null ? (
             <div className="flex justify-center">
               <Button variant="outline" onClick={onLoadMore} disabled={state.loadingMore} aria-busy={state.loadingMore}>
@@ -976,10 +1003,12 @@ function LinkTable({
   links,
   session,
   actions,
+  now,
 }: {
   readonly links: readonly Link[];
   readonly session: Session;
   readonly actions: LinkActions;
+  readonly now: number;
 }): ReactNode {
   return (
     <div className="hidden rounded-lg border md:block">
@@ -1028,10 +1057,10 @@ function LinkTable({
                   </a>
                 </TableCell>
                 <TableCell>
-                  <StatusBadge link={link} />
+                  <StatusBadge link={link} now={now} />
                 </TableCell>
                 <TableCell>
-                  <ExpiryText link={link} />
+                  <ExpiryText link={link} now={now} />
                 </TableCell>
                 <TableCell className="text-muted-foreground tabular-nums">
                   <time dateTime={link.createdAt}>{formatDate(link.createdAt, dateFormat)}</time>
@@ -1052,10 +1081,12 @@ function LinkCards({
   links,
   session,
   actions,
+  now,
 }: {
   readonly links: readonly Link[];
   readonly session: Session;
   readonly actions: LinkActions;
+  readonly now: number;
 }): ReactNode {
   return (
     <ul className="divide-y rounded-lg border md:hidden">
@@ -1075,7 +1106,7 @@ function LinkCards({
                 </a>
                 {link.title !== "" ? <p className="truncate text-sm">{link.title}</p> : null}
               </div>
-              <StatusBadge link={link} />
+              <StatusBadge link={link} now={now} />
             </div>
             <a
               href={link.destination}
@@ -1092,7 +1123,7 @@ function LinkCards({
               </span>
               {link.expiresAt !== null ? (
                 <span>
-                  <ExpiryText link={link} withLabel />
+                  <ExpiryText link={link} now={now} withLabel />
                 </span>
               ) : null}
             </div>
@@ -1104,9 +1135,9 @@ function LinkCards({
   );
 }
 
-function ExpiryText({ link, withLabel = false }: { readonly link: Link; readonly withLabel?: boolean }): ReactNode {
+function ExpiryText({ link, now, withLabel = false }: { readonly link: Link; readonly now: number; readonly withLabel?: boolean }): ReactNode {
   if (link.expiresAt === null) return <span className="text-muted-foreground">Never</span>;
-  const expired = isExpired(link);
+  const expired = isExpired(link, now);
   return (
     <span className={cn("tabular-nums", expired ? "text-warning" : "text-muted-foreground")}>
       {withLabel || expired ? (expired ? "Expired " : "Expires ") : null}
@@ -1115,9 +1146,9 @@ function ExpiryText({ link, withLabel = false }: { readonly link: Link; readonly
   );
 }
 
-function StatusBadge({ link }: { readonly link: Link }): ReactNode {
+function StatusBadge({ link, now }: { readonly link: Link; readonly now: number }): ReactNode {
   if (link.status === "revoked") return <Badge variant="secondary">Revoked</Badge>;
-  if (isExpired(link)) {
+  if (isExpired(link, now)) {
     return (
       <Badge variant="outline" className="border-warning/40 text-warning">
         Expired
@@ -1279,9 +1310,21 @@ function SettingsDialogContent({
       setFormError(describeValidationError(parsed.error));
       return;
     }
+    const changes = siteSettingsPatchSchema.safeParse({
+      ...(parsed.data.displayName === displayName ? {} : { displayName: parsed.data.displayName }),
+      ...(parsed.data.homeRedirectUrl === homeRedirectUrl ? {} : { homeRedirectUrl: parsed.data.homeRedirectUrl }),
+    });
+    if (Object.keys(changes.success ? changes.data : {}).length === 0) {
+      onClose();
+      return;
+    }
+    if (!changes.success) {
+      setFormError(describeValidationError(changes.error));
+      return;
+    }
     setSubmitting(true);
     try {
-      onSaved(await saveSiteSettings(parsed.data));
+      onSaved(await saveSiteSettings(changes.data));
     } catch (error) {
       if (error instanceof SessionExpiredError) {
         onSessionExpired(error);
@@ -1411,6 +1454,7 @@ function CreateDialogContent({
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [created, setCreated] = useState<Link | null>(null);
+  const submission = useRef<{ readonly draft: string; readonly command: CreateLink } | null>(null);
   const fieldId = useId();
   const errorId = `${fieldId}-error`;
   const shortHost = hostOf(session.shortOrigin);
@@ -1420,26 +1464,34 @@ function CreateDialogContent({
     if (submitting) return;
     setFormError(null);
 
-    const parsedExpiry = parseExpiryInput(expiry);
-    if (parsedExpiry.kind === "invalid") {
-      setFormError(parsedExpiry.message);
-      return;
-    }
-    const customSlug = slug.trim().toLowerCase();
-    const parsed = createLinkSchema.safeParse({
-      destination,
-      title,
-      ...(customSlug === "" ? {} : { slug: customSlug }),
-      ...(parsedExpiry.kind === "valid" ? { expiresAt: parsedExpiry.iso } : {}),
-    });
-    if (!parsed.success) {
-      setFormError(describeValidationError(parsed.error));
-      return;
+    const draft = JSON.stringify([destination, title, slug, expiry]);
+    let command: CreateLink;
+    if (submission.current?.draft === draft) {
+      command = submission.current.command;
+    } else {
+      const parsedExpiry = parseExpiryInput(expiry);
+      if (parsedExpiry.kind === "invalid") {
+        setFormError(parsedExpiry.message);
+        return;
+      }
+      const customSlug = slug.trim().toLowerCase();
+      const parsed = createLinkSchema.safeParse({
+        destination,
+        title,
+        ...(customSlug === "" ? {} : { slug: customSlug }),
+        ...(parsedExpiry.kind === "valid" ? { expiresAt: parsedExpiry.iso } : {}),
+      });
+      if (!parsed.success) {
+        setFormError(describeValidationError(parsed.error));
+        return;
+      }
+      command = { ...parsed.data, requestId: crypto.randomUUID() };
+      submission.current = { draft, command };
     }
 
     setSubmitting(true);
     try {
-      const link = await createLink(parsed.data);
+      const link = await createLink(command);
       onCreated(link);
       setCreated(link);
     } catch (error) {
@@ -1487,6 +1539,7 @@ function CreateDialogContent({
 
         <Field id={`${fieldId}-destination`} label="Destination">
           <Input
+            disabled={submitting}
             id={`${fieldId}-destination`}
             type="url"
             inputMode="url"
@@ -1498,18 +1551,19 @@ function CreateDialogContent({
             spellCheck={false}
             className="font-mono"
             value={destination}
-            onChange={(event) => setDestination(event.target.value)}
+            onChange={(event) => { submission.current = null; setDestination(event.target.value); }}
           />
         </Field>
 
         <Field id={`${fieldId}-title`} label="Title" optional>
           <Input
+            disabled={submitting}
             id={`${fieldId}-title`}
             type="text"
             maxLength={MAXIMUM_TITLE_LENGTH}
             autoComplete="off"
             value={title}
-            onChange={(event) => setTitle(event.target.value)}
+            onChange={(event) => { submission.current = null; setTitle(event.target.value); }}
           />
         </Field>
 
@@ -1527,7 +1581,8 @@ function CreateDialogContent({
               {shortHost}/
             </span>
             <Input
-              id={`${fieldId}-slug`}
+              disabled={submitting}
+            id={`${fieldId}-slug`}
               type="text"
               maxLength={MAXIMUM_CUSTOM_SLUG_LENGTH}
               autoComplete="off"
@@ -1537,19 +1592,20 @@ function CreateDialogContent({
               aria-describedby={`${fieldId}-slug-hint`}
               className="rounded-l-none font-mono shadow-none focus-visible:ring-0"
               value={slug}
-              onChange={(event) => setSlug(event.target.value.toLowerCase())}
+              onChange={(event) => { submission.current = null; setSlug(event.target.value.toLowerCase()); }}
             />
           </div>
         </Field>
 
         <Field id={`${fieldId}-expiry`} label="Expires" optional hint="Local time.">
           <Input
+            disabled={submitting}
             id={`${fieldId}-expiry`}
             type="datetime-local"
             min={minimumExpiryInputValue()}
             aria-describedby={`${fieldId}-expiry-hint`}
             value={expiry}
-            onChange={(event) => setExpiry(event.target.value)}
+            onChange={(event) => { submission.current = null; setExpiry(event.target.value); }}
           />
         </Field>
 
@@ -1676,6 +1732,7 @@ function EditDialogContent({
 
         <Field id={`${fieldId}-destination`} label="Destination">
           <Input
+            disabled={saving}
             id={`${fieldId}-destination`}
             type="url"
             inputMode="url"
@@ -1691,6 +1748,7 @@ function EditDialogContent({
 
         <Field id={`${fieldId}-title`} label="Title" optional>
           <Input
+            disabled={saving}
             id={`${fieldId}-title`}
             type="text"
             maxLength={MAXIMUM_TITLE_LENGTH}
@@ -1703,14 +1761,15 @@ function EditDialogContent({
         <Field id={`${fieldId}-expiry`} label="Expires" optional hint="Local time. Clear to never expire.">
           <div className="flex gap-2">
             <Input
-              id={`${fieldId}-expiry`}
+              disabled={saving}
+            id={`${fieldId}-expiry`}
               type="datetime-local"
               min={minimumExpiryInputValue()}
               aria-describedby={`${fieldId}-expiry-hint`}
               value={expiry}
               onChange={(event) => setExpiry(event.target.value)}
             />
-            <Button type="button" variant="outline" onClick={() => setExpiry("")} disabled={expiry === ""}>
+            <Button type="button" variant="outline" onClick={() => setExpiry("")} disabled={saving || expiry === ""}>
               Clear
             </Button>
           </div>

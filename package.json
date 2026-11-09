@@ -21,9 +21,9 @@
     "dev": "node scripts/check-runtime.ts && node scripts/copy-fonts.ts && vite",
     "build": "node scripts/check-runtime.ts && node scripts/copy-fonts.ts && vite build",
     "types": "wrangler types",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tests/tsconfig.json && tsc -p scripts/tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tests/tsconfig.json && tsc -p scripts/tsconfig.json && tsc -p tests-node/tsconfig.json && tsc -p tests-browser/tsconfig.json",
     "test": "vitest run",
-    "verify": "bun run check:runtime && bun run types && bun run typecheck && bun run test && bun run build",
+    "verify": "bun run check:runtime && bun run types && bun run typecheck && bun run test && bun run test:node && bun run test:admin && bun run build",
     "prepare:preview-fonts": "node scripts/prepare-preview-fonts.ts",
     "generate:preview-header": "bun scripts/generate-preview-header.ts",
     "profile:preview:deployed": "node scripts/profile-preview-deployed.ts",
@@ -31,11 +31,14 @@
     "setup": "node scripts/setup.ts",
     "deploy": "node scripts/deploy.ts",
     "verify:deployment": "node scripts/verify-deployment.ts",
-    "verify:live-links": "node scripts/verify-live-links.ts"
+    "verify:live-links": "node scripts/verify-live-links.ts",
+    "test:node": "node --test tests-node/*.test.ts",
+    "test:admin": "playwright test"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.65.0",
     "@cloudflare/vitest-plugin": "^1.4.7",
+    "@playwright/test": "^1.65.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",

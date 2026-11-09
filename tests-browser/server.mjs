@@ -1,0 +1,21 @@
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { spawn, spawnSync } from "node:child_process";
+
+const root = process.cwd();
+const directory = resolve(root, "verification-artifacts/admin-test");
+const configurationPath = resolve(directory, "wrangler.json");
+rmSync(directory, { recursive: true, force: true });
+mkdirSync(directory, { recursive: true });
+const configuration = JSON.parse(readFileSync("wrangler.jsonc", "utf8"));
+configuration.main = resolve(root, "src/index.ts");
+configuration.assets.directory = resolve(root, "dist/client");
+configuration.d1_databases[0].migrations_dir = resolve(root, "migrations");
+configuration.vars = { ...configuration.vars, SHORT_ORIGIN: "http://127.0.0.1:5174", ADMIN_ORIGIN: "http://127.0.0.1:5174", ACCESS_ISSUER: "https://local.cloudflareaccess.com", ACCESS_AUDIENCE: "local-development", ADMIN_EMAILS: "developer@localhost", LOCAL_DEVELOPMENT: "true" };
+writeFileSync(configurationPath, JSON.stringify(configuration));
+writeFileSync(resolve(directory, ".dev.vars"), Object.entries(configuration.vars).map(([key, value]) => `${key}=${value}`).join("\n"));
+const migration = spawnSync("bunx", ["wrangler", "d1", "migrations", "apply", "ratatoskr", "--local", "--config", configurationPath, "--persist-to", directory], { stdio: "inherit" });
+if (migration.status !== 0) process.exit(migration.status ?? 1);
+const server = spawn("bunx", ["vite", "--host", "127.0.0.1", "--port", "5174", "--strictPort"], { stdio: "inherit", env: { ...process.env, RATATOSKR_CONFIG: configurationPath, RATATOSKR_STATE_DIRECTORY: directory } });
+for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => server.kill(signal));
+server.on("exit", (code) => { rmSync(configurationPath, { force: true }); process.exit(code ?? 0); });

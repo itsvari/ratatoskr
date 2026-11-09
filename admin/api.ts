@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   apiErrorSchema,
+  DEFAULT_DISPLAY_NAME,
   linkPageSchema,
   linkSchema,
   sessionSchema,
@@ -12,7 +13,8 @@ import {
   type Session,
   type UpdateLink,
   type SiteSettings,
-} from "../shared/contracts";
+  type SiteSettingsPatch,
+} from "../shared/contracts.ts";
 
 export class SessionExpiredError extends Error {
   override readonly name = "SessionExpiredError";
@@ -69,7 +71,10 @@ async function request(path: string, options: RequestOptions = {}): Promise<Resp
   }
 
   if (!response.ok) {
-    const payload: unknown = await response.json().catch(() => null);
+    const payload: unknown = await response.json().catch((error: unknown) => {
+      if (isAbortError(error)) throw error;
+      return null;
+    });
     const parsed = apiErrorSchema.safeParse(payload);
     throw new ApiError({
       message: parsed.success ? parsed.data.error : `The request failed with status ${response.status}.`,
@@ -81,7 +86,10 @@ async function request(path: string, options: RequestOptions = {}): Promise<Resp
 }
 
 async function readJson<Schema extends z.ZodType>(response: Response, schema: Schema): Promise<z.infer<Schema>> {
-  const payload: unknown = await response.json().catch(() => null);
+  const payload: unknown = await response.json().catch((error: unknown) => {
+    if (isAbortError(error)) throw error;
+    return null;
+  });
   const parsed = schema.safeParse(payload);
   if (!parsed.success) {
     throw new ApiError({ message: "The server sent a response this page does not understand.", status: response.status });
@@ -98,10 +106,13 @@ export async function fetchSession(signal?: AbortSignal): Promise<Session> {
   return readJson(response, sessionSchema);
 }
 
-export async function saveSiteSettings(body: SiteSettings): Promise<SiteSettings> {
-  const { generatePreviewHeader } = await import("./preview-image");
-  const previewHeader = await generatePreviewHeader(body.displayName);
-  return readJson(await request("/api/settings", { method: "PATCH", body: { ...body, previewHeader } }), siteSettingsSchema);
+export async function saveSiteSettings(body: SiteSettingsPatch): Promise<SiteSettings> {
+  if (body.displayName !== undefined && body.displayName !== DEFAULT_DISPLAY_NAME) {
+    const { generatePreviewHeader } = await import("./preview-image");
+    const previewHeader = await generatePreviewHeader(body.displayName);
+    return readJson(await request("/api/settings", { method: "PATCH", body: { ...body, previewHeader } }), siteSettingsSchema);
+  }
+  return readJson(await request("/api/settings", { method: "PATCH", body }), siteSettingsSchema);
 }
 
 export async function fetchLinks({
