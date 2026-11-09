@@ -100,3 +100,7 @@ Existing links need **Regenerate preview image** in the admin panel after the mi
 The default branding section is a build-time asset. Regenerate it with `bun run generate:preview-header` after changing the template or font. Keep its 72-row boundary above link-specific content. See `docs/preview-performance.md` for limits, staging evidence and remaining uncertainty.
 
 For the display-name stack, apply `0003_site_settings.sql` after the shared image migration. Saving a custom name now requires a browser-rendered `previewHeader`; the settings transaction stores it atomically with the name and audit event. Old API clients that omit this header cannot change a custom name. Link bodies are independent of branding, so a settings save does not regenerate every link. The default name restores the built-in header.
+
+## Main page redirect
+
+Open **Settings** in the admin panel and enter an address under **Main page redirect**. Requests for the public hostname's `/` then receive a 302 to that address. Leave the field empty to show the built-in page. The address must use HTTP or HTTPS without credentials and cannot point back to the shortener's own hostnames. Only `/` on the public hostname reads this setting. Shortlink redirects, `/_health` and the preview hostname are unaffected. Apply `0004_home_redirect.sql` before publication. It adds nullable columns, so existing settings and links stay as they are.

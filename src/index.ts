@@ -5,7 +5,7 @@ import { createLinkSchema, linkExportFilename, linkStatusSchema, updateSiteSetti
 import { acceptsMutation, authenticate, type Administrator } from "./auth";
 import { loadConfiguration, type Bindings, type Configuration } from "./configuration";
 import { ApplicationError } from "./errors";
-import { createLink, deleteLink, exportLinks, getLink, listLinks, updateLink } from "./links";
+import { createLink, deleteLink, exportLinks, getLink, listLinks, updateLink, validateDestination } from "./links";
 import { brandAdminPage, renderHome, renderPreview, renderUnavailable } from "./preview";
 import { previewUploadSchema, MAXIMUM_PREVIEW_UPLOAD_BYTES } from "../shared/preview-image";
 import { renderPreviewImage, storePreviewImage } from "./preview-image";
@@ -151,16 +151,18 @@ application.use("*", async (context, next) => {
 
 application.get("/api/session", async (context) => {
   const configuration = context.get("configuration");
+  const { displayName, homeRedirectUrl } = await readSettings(context);
   return context.json({ email: context.get("administrator").email, shortOrigin: configuration.shortOrigin,
-    adminOrigin: configuration.adminOrigin, previewOrigin: configuration.previewOrigin,
-    displayName: (await readSettings(context)).displayName });
+    adminOrigin: configuration.adminOrigin, previewOrigin: configuration.previewOrigin, displayName, homeRedirectUrl });
 });
 
 application.get("/api/settings", async (context) => context.json(await readSettings(context)));
 
 application.patch("/api/settings", async (context) => {
   const settings = await parseBody(context.req.raw, updateSiteSettingsSchema, MAXIMUM_PREVIEW_UPLOAD_BYTES);
-  return context.json(await updateSiteSettings(context.env.DB, context.get("administrator"), settings));
+  const homeRedirectUrl = settings.homeRedirectUrl === null ? null
+    : validateDestination(settings.homeRedirectUrl, context.get("configuration"));
+  return context.json(await updateSiteSettings(context.env.DB, context.get("administrator"), { ...settings, homeRedirectUrl }));
 });
 
 application.get("/api/links", async (context) => {
@@ -232,7 +234,9 @@ application.get("*", async (context) => {
   if (url.pathname === "/_health") return context.json({ status: "ok" });
   if (url.pathname === "/") {
     if (url.origin !== configuration.shortOrigin) return unavailable(context, 404);
-    return renderHome(separateAdmin ? configuration.adminOrigin : `${configuration.adminOrigin}/admin/`, (await readSettings(context)).displayName);
+    const { displayName, homeRedirectUrl } = await readSettings(context);
+    if (homeRedirectUrl !== null) return context.redirect(homeRedirectUrl, 302);
+    return renderHome(separateAdmin ? configuration.adminOrigin : `${configuration.adminOrigin}/admin/`, displayName);
   }
   const imageSlug = /^\/_preview\/([a-z0-9-]+)\.png$/.exec(url.pathname)?.[1];
   const requestedSlug = imageSlug ?? url.pathname.slice(1);

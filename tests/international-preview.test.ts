@@ -108,7 +108,7 @@ describe("International preview fonts", () => {
     const images: Uint8Array[] = [];
     for (const displayName of ["我的链接", "روابطي"]) {
       const saved = await SELF.fetch(`${ORIGIN}/api/settings`, {
-        method: "PATCH", headers: { Origin: ORIGIN, "Content-Type": "application/json" }, body: JSON.stringify({ displayName, previewHeader: (await previewSections(displayName)).header }),
+        method: "PATCH", headers: { Origin: ORIGIN, "Content-Type": "application/json" }, body: JSON.stringify({ displayName, homeRedirectUrl: null, previewHeader: (await previewSections(displayName)).header }),
       });
       expect(saved.status).toBe(200);
       expect((await SELF.fetch(`${ORIGIN}/${link.slug}+`)).headers.get("Cache-Control")).toBe("no-store");

@@ -227,6 +227,8 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   title: "Title",
   slug: "Slug",
   expiresAt: "Expiry",
+  displayName: "Display name",
+  homeRedirectUrl: "Main page redirect",
 };
 
 function describeValidationError(error: z.ZodError): string {
@@ -796,6 +798,7 @@ function Workspace({
         {settingsOpen ? (
           <SettingsDialogContent
             displayName={session.displayName}
+            homeRedirectUrl={session.homeRedirectUrl}
             onClose={() => setSettingsOpen(false)}
             onSaved={(settings) => {
               onSettingsSaved(settings);
@@ -1245,26 +1248,33 @@ function busyGuards(busy: boolean): {
 
 function SettingsDialogContent({
   displayName,
+  homeRedirectUrl,
   onClose,
   onSaved,
   onSessionExpired,
 }: {
   readonly displayName: string;
+  readonly homeRedirectUrl: string | null;
   readonly onClose: () => void;
   readonly onSaved: (settings: SiteSettings) => void;
   readonly onSessionExpired: ReportError;
 }): ReactNode {
   const [name, setName] = useState(displayName);
+  const [redirectUrl, setRedirectUrl] = useState(homeRedirectUrl ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const fieldId = useId();
+  const redirectFieldId = useId();
   const errorId = `${fieldId}-error`;
 
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     if (submitting) return;
     setFormError(null);
-    const parsed = siteSettingsSchema.safeParse({ displayName: name });
+    const parsed = siteSettingsSchema.safeParse({
+      displayName: name,
+      homeRedirectUrl: redirectUrl.trim() === "" ? null : redirectUrl,
+    });
     if (!parsed.success) {
       setFormError(describeValidationError(parsed.error));
       return;
@@ -1289,7 +1299,7 @@ function SettingsDialogContent({
         <DialogHeader>
           <DialogTitle>Site settings</DialogTitle>
           <DialogDescription id={`${fieldId}-description`}>
-            Choose the name shown across your shortlink site.
+            Choose the name shown across your shortlink site and where its main page leads.
           </DialogDescription>
         </DialogHeader>
         <Field id={fieldId} label="Display name" hint="Shown in the admin panel, public pages and link previews.">
@@ -1307,10 +1317,29 @@ function SettingsDialogContent({
             disabled={submitting}
           />
         </Field>
+        <Field id={redirectFieldId} label="Main page redirect" hint="Visitors to the main page are sent here. Leave empty to show the built-in page.">
+          <Input
+            id={redirectFieldId}
+            type="url"
+            inputMode="url"
+            placeholder="https://example.com"
+            value={redirectUrl}
+            onChange={(event) => {
+              setRedirectUrl(event.target.value);
+              setFormError(null);
+            }}
+            maxLength={MAXIMUM_DESTINATION_LENGTH}
+            aria-describedby={`${redirectFieldId}-hint`}
+            autoComplete="off"
+            spellCheck={false}
+            disabled={submitting}
+          />
+        </Field>
         <FormError id={errorId} message={formError} />
         <DialogFooter>
           <Button type="button" variant="ghost" className="sm:mr-auto" disabled={submitting} onClick={() => {
             setName(DEFAULT_DISPLAY_NAME);
+            setRedirectUrl("");
             setFormError(null);
           }}>
             Use default

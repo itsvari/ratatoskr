@@ -22,30 +22,30 @@ beforeEach(async () => {
   ]);
 });
 
-async function save(displayName: unknown, origin = ORIGIN) {
+async function save(displayName: unknown, origin = ORIGIN, homeRedirectUrl: unknown = null) {
   const previewHeader = (await previewSections(siteSettingsSchema.safeParse({ displayName }).success && typeof displayName === "string" ? displayName.trim() : "invalid")).header;
   return SELF.fetch(`${ORIGIN}/api/settings`, {
     method: "PATCH", headers: { "Content-Type": "application/json", Origin: origin },
-    body: JSON.stringify({ displayName, previewHeader }),
+    body: JSON.stringify({ displayName, homeRedirectUrl, previewHeader }),
   });
 }
 
 describe("Site settings", () => {
   it("starts with the default name and persists trimmed changes with an atomic audit", async () => {
-    expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME });
-    expect(await updateSiteSettings(env.DB, administrator, { displayName: "  My Links  ", previewHeader: (await previewSections("My Links")).header })).toEqual({ displayName: "My Links" });
-    expect(await getSiteSettings(env.DB)).toEqual({ displayName: "My Links" });
+    expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME, homeRedirectUrl: null });
+    expect(await updateSiteSettings(env.DB, administrator, { displayName: "  My Links  ", homeRedirectUrl: null, previewHeader: (await previewSections("My Links")).header })).toEqual({ displayName: "My Links", homeRedirectUrl: null });
+    expect(await getSiteSettings(env.DB)).toEqual({ displayName: "My Links", homeRedirectUrl: null });
     expect(await env.DB.prepare("SELECT actor_subject, display_name FROM site_settings_audit").first())
       .toEqual({ actor_subject: administrator.subject, display_name: "My Links" });
-    await updateSiteSettings(env.DB, administrator, { displayName: "My Links", previewHeader: (await previewSections("My Links")).header });
+    await updateSiteSettings(env.DB, administrator, { displayName: "My Links", homeRedirectUrl: null, previewHeader: (await previewSections("My Links")).header });
     expect(await env.DB.prepare("SELECT COUNT(*) AS count FROM site_settings_audit").first("count")).toBe(1);
   });
 
   it("rolls back settings and administrator creation when the audit fails", async () => {
     await env.DB.prepare("CREATE TRIGGER reject_settings_audit BEFORE INSERT ON site_settings_audit BEGIN SELECT RAISE(ABORT, 'audit unavailable'); END").run();
     try {
-      await expect(updateSiteSettings(env.DB, administrator, { displayName: "Withdrawn change", previewHeader: (await previewSections("Withdrawn change")).header })).rejects.toThrow();
-      expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME });
+      await expect(updateSiteSettings(env.DB, administrator, { displayName: "Withdrawn change", homeRedirectUrl: null, previewHeader: (await previewSections("Withdrawn change")).header })).rejects.toThrow();
+      expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME, homeRedirectUrl: null });
       expect(await env.DB.prepare("SELECT COUNT(*) AS count FROM administrators").first("count")).toBe(0);
     } finally {
       await env.DB.prepare("DROP TRIGGER reject_settings_audit").run();
@@ -54,7 +54,7 @@ describe("Site settings", () => {
 
   it.each(["", " ", "x".repeat(MAXIMUM_DISPLAY_NAME_LENGTH + 1), "Name\nName", "Name\u0000", "Name\ud800", "Name\uffff", 123, null])("rejects invalid names: %j", async (displayName) => {
     expect((await save(displayName)).status).toBe(400);
-    expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME });
+    expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME, homeRedirectUrl: null });
   });
 
   it("rejects unknown fields and cross-origin or originless writes", async () => {
@@ -70,11 +70,33 @@ describe("Site settings", () => {
 
   it("requires generated branding for a custom name and leaves the previous settings intact", async () => {
     const response = await SELF.fetch(`${ORIGIN}/api/settings`, { method: "PATCH",
-      headers: { Origin: ORIGIN, "Content-Type": "application/json" }, body: JSON.stringify({ displayName: "Unrendered name" }) });
+      headers: { Origin: ORIGIN, "Content-Type": "application/json" }, body: JSON.stringify({ displayName: "Unrendered name", homeRedirectUrl: null }) });
     expect(response.status).toBe(400);
-    expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME });
+    expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME, homeRedirectUrl: null });
     expect(await env.DB.prepare("SELECT segment FROM preview_branding WHERE singleton = 1").first("segment")).toBeNull();
   });
+
+  it("redirects the main page once configured and shows the built-in page again after clearing it", async () => {
+    expect((await SELF.fetch(ORIGIN, { redirect: "manual" })).status).toBe(200);
+    const response = await save(DEFAULT_DISPLAY_NAME, ORIGIN, "https://example.com/welcome");
+    expect(siteSettingsSchema.parse(await response.json()).homeRedirectUrl).toBe("https://example.com/welcome");
+    const redirect = await SELF.fetch(ORIGIN, { redirect: "manual" });
+    expect(redirect.status).toBe(302);
+    expect(redirect.headers.get("Location")).toBe("https://example.com/welcome");
+    expect((await SELF.fetch(ORIGIN, { redirect: "manual", method: "HEAD" })).status).toBe(302);
+    expect(sessionSchema.parse(await (await SELF.fetch(`${ORIGIN}/api/session`)).json()).homeRedirectUrl).toBe("https://example.com/welcome");
+    expect((await SELF.fetch(`${ORIGIN}/missing+`)).status).toBe(404);
+    expect(await env.DB.prepare("SELECT home_redirect_url FROM site_settings_audit").first("home_redirect_url")).toBe("https://example.com/welcome");
+    await save(DEFAULT_DISPLAY_NAME, ORIGIN, null);
+    expect((await SELF.fetch(ORIGIN, { redirect: "manual" })).status).toBe(200);
+    expect(await env.DB.prepare("SELECT COUNT(*) AS count FROM site_settings_audit").first("count")).toBe(2);
+  });
+
+  it.each(["not a url", "javascript:alert(1)", "ftp://example.com", "https://user:pass@example.com", "http://localhost:5173/loop", "", 5])(
+    "rejects an unusable main page redirect: %j", async (homeRedirectUrl) => {
+      expect((await save(DEFAULT_DISPLAY_NAME, ORIGIN, homeRedirectUrl)).status).toBe(400);
+      expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME, homeRedirectUrl: null });
+    });
 
   it("requires Access on the management host and hides settings on public hosts", async () => {
     const environment = { ...env, SHORT_ORIGIN: "https://links.example.com", ADMIN_ORIGIN: "https://admin.example.com",
@@ -87,7 +109,7 @@ describe("Site settings", () => {
       const response = await worker.fetch(request, environment, createExecutionContext());
       expect(response.status).toBe(hostname === "admin" ? 401 : 404);
     }
-    expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME });
+    expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME, homeRedirectUrl: null });
   });
 
   it("updates session data, public pages, preview metadata, PNGs and export names", async () => {
@@ -100,8 +122,8 @@ describe("Site settings", () => {
     const before = new Uint8Array(await (await SELF.fetch(`${ORIGIN}/_preview/branding.png`)).arrayBuffer());
     const response = await save("  My Links & Notes  ");
     expect(response.status).toBe(200);
-    expect(siteSettingsSchema.parse(await response.json())).toEqual({ displayName: "My Links & Notes" });
-    expect(siteSettingsSchema.parse(await (await SELF.fetch(`${ORIGIN}/api/settings`)).json())).toEqual({ displayName: "My Links & Notes" });
+    expect(siteSettingsSchema.parse(await response.json())).toEqual({ displayName: "My Links & Notes", homeRedirectUrl: null });
+    expect(siteSettingsSchema.parse(await (await SELF.fetch(`${ORIGIN}/api/settings`)).json())).toEqual({ displayName: "My Links & Notes", homeRedirectUrl: null });
     expect(sessionSchema.parse(await (await SELF.fetch(`${ORIGIN}/api/session`)).json()).displayName).toBe("My Links & Notes");
     for (const path of ["/", "/branding+", "/missing+"]) {
       const html = await (await SELF.fetch(`${ORIGIN}${path}`)).text();

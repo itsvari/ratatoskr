@@ -28,7 +28,7 @@ function auditStatement(database: D1DatabaseSession, administrator: Administrato
     .bind(crypto.randomUUID(), administrator.subject, action, slug, createdAt);
 }
 
-function validateDestination(destination: string, configuration: Configuration): string {
+export function validateDestination(destination: string, configuration: Configuration): string {
   let target: URL;
   try {
     target = new URL(destination);

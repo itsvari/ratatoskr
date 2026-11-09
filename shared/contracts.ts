@@ -7,9 +7,21 @@ export const MAXIMUM_CUSTOM_SLUG_LENGTH = 48;
 export const DEFAULT_DISPLAY_NAME = "Ratatoskr";
 export const MAXIMUM_DISPLAY_NAME_LENGTH = 48;
 
+const homeRedirectUrlSchema = z.string().trim().min(1).max(MAXIMUM_DESTINATION_LENGTH)
+  .refine((value) => {
+    try {
+      const target = new URL(value);
+      return ["http:", "https:"].includes(target.protocol) && !target.username && !target.password;
+    } catch {
+      return false;
+    }
+  }, "Enter an absolute HTTP or HTTPS address without credentials.");
+
 export const siteSettingsSchema = z.object({
   displayName: z.string().trim().min(1, "Enter a display name.").max(MAXIMUM_DISPLAY_NAME_LENGTH)
     .regex(/^[^\p{Cc}\p{Cs}\p{Zl}\p{Zp}\uFFFE\uFFFF]+$/u, "Use a single line without control or invalid Unicode characters."),
+  // null shows the built-in home page instead of redirecting
+  homeRedirectUrl: homeRedirectUrlSchema.nullable(),
 }).strict();
 
 export const updateSiteSettingsSchema = siteSettingsSchema.extend({ previewHeader: previewSegmentSchema.optional() })
@@ -70,6 +82,7 @@ export const sessionSchema = z.object({
   previewOrigin: z.string().nullable(),
   adminOrigin: z.string(),
   displayName: siteSettingsSchema.shape.displayName,
+  homeRedirectUrl: siteSettingsSchema.shape.homeRedirectUrl,
 });
 
 export type Session = z.infer<typeof sessionSchema>;
