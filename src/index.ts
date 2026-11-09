@@ -160,7 +160,7 @@ application.get("/api/settings", async (context) => context.json(await readSetti
 
 application.patch("/api/settings", async (context) => {
   const settings = await parseBody(context.req.raw, updateSiteSettingsSchema, MAXIMUM_PREVIEW_UPLOAD_BYTES);
-  const homeRedirectUrl = settings.homeRedirectUrl === null ? null
+  const homeRedirectUrl = settings.homeRedirectUrl == null ? settings.homeRedirectUrl
     : validateDestination(settings.homeRedirectUrl, context.get("configuration"));
   return context.json(await updateSiteSettings(context.env.DB, context.get("administrator"), { ...settings, homeRedirectUrl }));
 });

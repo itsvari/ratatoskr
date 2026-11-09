@@ -18,12 +18,12 @@ beforeEach(async () => {
     env.DB.prepare("DELETE FROM audit_events"),
     env.DB.prepare("DELETE FROM links"),
     env.DB.prepare("DELETE FROM administrators"),
-    env.DB.prepare("UPDATE site_settings SET display_name = 'Ratatoskr' WHERE singleton = 1"),
+    env.DB.prepare("UPDATE site_settings SET display_name = 'Ratatoskr', home_redirect_url = NULL WHERE singleton = 1"),
   ]);
 });
 
 async function save(displayName: unknown, origin = ORIGIN, homeRedirectUrl: unknown = null) {
-  const previewHeader = (await previewSections(siteSettingsSchema.safeParse({ displayName }).success && typeof displayName === "string" ? displayName.trim() : "invalid")).header;
+  const previewHeader = (await previewSections(siteSettingsSchema.shape.displayName.safeParse(displayName).success && typeof displayName === "string" ? displayName.trim() : "invalid")).header;
   return SELF.fetch(`${ORIGIN}/api/settings`, {
     method: "PATCH", headers: { "Content-Type": "application/json", Origin: origin },
     body: JSON.stringify({ displayName, homeRedirectUrl, previewHeader }),
@@ -31,6 +31,50 @@ async function save(displayName: unknown, origin = ORIGIN, homeRedirectUrl: unkn
 }
 
 describe("Site settings", () => {
+  it("preserves independent partial changes and audits the resulting settings", async () => {
+    const header = (await previewSections("Team links")).header;
+    await Promise.all([
+      updateSiteSettings(env.DB, administrator, { displayName: "Team links", previewHeader: header }),
+      updateSiteSettings(env.DB, administrator, { homeRedirectUrl: "https://example.com/" }),
+    ]);
+    expect(await getSiteSettings(env.DB)).toEqual({ displayName: "Team links", homeRedirectUrl: "https://example.com/" });
+    await updateSiteSettings(env.DB, administrator, { homeRedirectUrl: null });
+    expect(await getSiteSettings(env.DB)).toEqual({ displayName: "Team links", homeRedirectUrl: null });
+    expect(await env.DB.prepare("SELECT COUNT(*) AS count FROM site_settings_audit").first("count")).toBe(3);
+    await updateSiteSettings(env.DB, administrator, { homeRedirectUrl: null });
+    expect(await env.DB.prepare("SELECT COUNT(*) AS count FROM site_settings_audit").first("count")).toBe(3);
+  });
+
+  it("preserves the redirect and branding independently and ignores a default-name header", async () => {
+    const header = (await previewSections("Team links")).header;
+    await updateSiteSettings(env.DB, administrator, { homeRedirectUrl: "https://example.com/home" });
+    await updateSiteSettings(env.DB, administrator, { displayName: "Team links", previewHeader: header });
+    expect(await getSiteSettings(env.DB)).toEqual({ displayName: "Team links", homeRedirectUrl: "https://example.com/home" });
+    const storedHeader = await env.DB.prepare("SELECT segment FROM preview_branding WHERE singleton = 1").first("segment");
+    expect(storedHeader).toBe(JSON.stringify(header));
+    await updateSiteSettings(env.DB, administrator, { homeRedirectUrl: "https://example.org/" });
+    expect(await env.DB.prepare("SELECT segment FROM preview_branding WHERE singleton = 1").first("segment")).toBe(storedHeader);
+    await updateSiteSettings(env.DB, administrator, { displayName: DEFAULT_DISPLAY_NAME, previewHeader: header });
+    expect(await env.DB.prepare("SELECT segment FROM preview_branding WHERE singleton = 1").first("segment")).toBeNull();
+    expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME, homeRedirectUrl: "https://example.org/" });
+  });
+
+  it("rolls back settings and audit when branding fails and leaves no-op changes unaudited", async () => {
+    const header = (await previewSections("Team links")).header;
+    await updateSiteSettings(env.DB, administrator, { displayName: "Team links", previewHeader: header });
+    await updateSiteSettings(env.DB, administrator, { displayName: "Team links", previewHeader: header });
+    expect(await env.DB.prepare("SELECT COUNT(*) AS count FROM site_settings_audit").first("count")).toBe(1);
+    await env.DB.prepare("CREATE TRIGGER reject_branding BEFORE UPDATE ON preview_branding BEGIN SELECT RAISE(ABORT, 'branding unavailable'); END").run();
+    try {
+      await expect(updateSiteSettings(env.DB, administrator, { displayName: DEFAULT_DISPLAY_NAME, homeRedirectUrl: "https://example.com/" })).rejects.toThrow();
+      expect(await getSiteSettings(env.DB)).toEqual({ displayName: "Team links", homeRedirectUrl: null });
+      expect(await env.DB.prepare("SELECT segment FROM preview_branding WHERE singleton = 1").first("segment")).toBe(JSON.stringify(header));
+      expect(await env.DB.prepare("SELECT COUNT(*) AS count FROM site_settings_audit").first("count")).toBe(1);
+    } finally {
+      await env.DB.prepare("DROP TRIGGER reject_branding").run();
+    }
+  });
+
   it("starts with the default name and persists trimmed changes with an atomic audit", async () => {
     expect(await getSiteSettings(env.DB)).toEqual({ displayName: DEFAULT_DISPLAY_NAME, homeRedirectUrl: null });
     expect(await updateSiteSettings(env.DB, administrator, { displayName: "  My Links  ", homeRedirectUrl: null, previewHeader: (await previewSections("My Links")).header })).toEqual({ displayName: "My Links", homeRedirectUrl: null });

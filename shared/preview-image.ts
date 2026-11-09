@@ -5,6 +5,7 @@ export const PREVIEW_IMAGE_HEIGHT = 315;
 export const PREVIEW_HEADER_HEIGHT = 72;
 export const PREVIEW_SCANLINE_BYTES = PREVIEW_IMAGE_WIDTH * 4 + 1;
 export const MAXIMUM_PREVIEW_UPLOAD_BYTES = 128 * 1024;
+export const PREVIEW_FINAL_DEFLATE_BLOCK = new Uint8Array([1, 0, 0, 255, 255]);
 
 export const previewSegmentSchema = z.object({
   compressed: z.string().min(8).max(96 * 1024).regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/),

@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { PREVIEW_IMAGE_WIDTH, PREVIEW_IMAGE_HEIGHT, PREVIEW_HEADER_HEIGHT, PREVIEW_SCANLINE_BYTES, type PreviewSegment } from "../shared/preview-image";
+import { PREVIEW_FINAL_DEFLATE_BLOCK, PREVIEW_IMAGE_WIDTH, PREVIEW_IMAGE_HEIGHT, PREVIEW_HEADER_HEIGHT, PREVIEW_SCANLINE_BYTES, type PreviewSegment } from "../shared/preview-image";
 import { crc32, deflateSync } from "node:zlib";
 
 function uint32(value: number): Uint8Array<ArrayBuffer> {
@@ -51,10 +51,9 @@ const previewSuffix = Buffer.concat(chunk("IEND", new Uint8Array()));
 export function assemblePreviewPng(header: PreviewSegment, body: PreviewSegment): Uint8Array<ArrayBuffer> {
   const headerBytes = Buffer.from(header.compressed, "base64");
   const bodyBytes = Buffer.from(body.compressed, "base64");
-  const finalBlock = new Uint8Array([1, 0, 0, 255, 255]);
   const checksum = combineAdler32(header.checksum, body.checksum,
     (PREVIEW_IMAGE_HEIGHT - PREVIEW_HEADER_HEIGHT) * PREVIEW_SCANLINE_BYTES);
-  const compressed = Buffer.concat([new Uint8Array([0x78, 0x01]), headerBytes, bodyBytes, finalBlock, uint32(checksum)]);
+  const compressed = Buffer.concat([new Uint8Array([0x78, 0x01]), headerBytes, bodyBytes, PREVIEW_FINAL_DEFLATE_BLOCK, uint32(checksum)]);
   return Buffer.concat([previewPrefix, ...chunk("IDAT", compressed), previewSuffix]);
 }
 

@@ -3,6 +3,7 @@ import { storedPreviewSegmentSchema, type PreviewUpload } from "../shared/previe
 import { assemblePreviewPng } from "./png";
 import { ApplicationError } from "./errors";
 import { renderUnavailable } from "./preview";
+import { validatePreviewSegment } from "./preview-segment";
 import defaultHeader from "./assets/preview-header.json";
 
 const storedImageSchema = z.object({
@@ -11,13 +12,14 @@ const storedImageSchema = z.object({
 });
 
 export async function storePreviewImage(database: D1Database, slug: string, upload: PreviewUpload): Promise<void> {
+  const segment = validatePreviewSegment(upload.segment, "body");
   const result = await database.withSession("first-primary").prepare(`
     INSERT INTO preview_images (slug, title, destination, origin, segment)
     SELECT slug, title, destination, ?, ? FROM links
     WHERE slug = ? AND status != 'deleted' AND title = ? AND destination = ?
     ON CONFLICT(slug) DO UPDATE SET title = excluded.title, destination = excluded.destination,
       origin = excluded.origin, segment = excluded.segment RETURNING slug`)
-    .bind(upload.origin, JSON.stringify(upload.segment), slug, upload.title, upload.destination).first();
+    .bind(upload.origin, JSON.stringify(segment), slug, upload.title, upload.destination).first();
   if (result === null) throw new ApplicationError("The link changed. Reload it before generating its image again.", 409);
 }
 

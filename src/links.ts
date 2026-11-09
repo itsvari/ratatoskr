@@ -28,7 +28,7 @@ function auditStatement(database: D1DatabaseSession, administrator: Administrato
     .bind(crypto.randomUUID(), administrator.subject, action, slug, createdAt);
 }
 
-export function validateDestination(destination: string, configuration: Configuration): string {
+function canonicalDestination(destination: string): string {
   let target: URL;
   try {
     target = new URL(destination);
@@ -38,12 +38,17 @@ export function validateDestination(destination: string, configuration: Configur
   if (!["http:", "https:"].includes(target.protocol) || target.username || target.password) {
     throw new ApplicationError("Destinations must use HTTP or HTTPS without credentials.", 400);
   }
-  const destinationHostname = target.hostname.replace(/\.$/, "");
+  return target.href;
+}
+
+export function validateDestination(destination: string, configuration: Configuration): string {
+  const canonical = canonicalDestination(destination);
+  const destinationHostname = new URL(canonical).hostname.replace(/\.$/, "");
   const shortenerOrigins = [configuration.shortOrigin, configuration.adminOrigin, configuration.previewOrigin];
   if (shortenerOrigins.some((origin) => origin !== null && new URL(origin).hostname.replace(/\.$/, "") === destinationHostname)) {
     throw new ApplicationError("Destinations cannot point back to this shortener.", 400);
   }
-  return target.href;
+  return canonical;
 }
 
 function validateExpiry(expiresAt: string | null | undefined): string | null {
@@ -62,31 +67,63 @@ export async function getLink(database: D1Database, slug: string): Promise<Link 
   return row === null ? null : databaseLinkSchema.parse(row);
 }
 
-async function insertLink(database: D1Database, administrator: Administrator, slug: string, draft: CreateLink): Promise<Link | null> {
+const receiptSchema = z.object({ requestHash: z.string().nullable(), slug: z.string(), title: z.string(), destination: z.string().nullable(),
+  status: z.enum(["active", "revoked", "deleted"]), expiresAt: z.string().nullable(), createdAt: z.string(), updatedAt: z.string() }).strict();
+const RECEIPT_SELECT = `SELECT request_hash AS requestHash, ${LINK_COLUMNS} FROM creation_requests JOIN links USING (slug) WHERE actor_subject = ? AND request_id = ?`;
+
+function classifyReceipt(row: unknown, requestHash: string): Link | null {
+  if (row === null || row === undefined) return null;
+  const receipt = receiptSchema.parse(row);
+  if (receipt.status === "deleted") throw new ApplicationError("This creation was completed and then deleted.", 409);
+  if (receipt.requestHash !== requestHash) throw new ApplicationError("This request identifier was already used for a different creation.", 409);
+  const { requestHash: _requestHash, ...link } = receipt;
+  return databaseLinkSchema.parse(link);
+}
+
+async function insertLink(database: D1Database, administrator: Administrator, slug: string, draft: CreateLink, requestHash: string | null): Promise<Link | null> {
   const session = database.withSession("first-primary");
   const createdAt = new Date().toISOString();
+  if (draft.requestId === undefined || requestHash === null) {
+    const results = await session.batch([
+      administratorStatement(session, administrator),
+      session.prepare(`INSERT INTO links (slug, title, destination, status, expires_at, created_at, updated_at, created_by) VALUES (?, ?, ?, 'active', ?, ?, ?, ?) ON CONFLICT(slug) DO NOTHING RETURNING ${LINK_COLUMNS}`)
+        .bind(slug, draft.title, draft.destination, draft.expiresAt ?? null, createdAt, createdAt, administrator.subject),
+      auditStatement(session, administrator, slug, "create", createdAt),
+    ]);
+    const row = results[1]?.results[0];
+    return row === undefined ? null : databaseLinkSchema.parse(row);
+  }
   const results = await session.batch([
     administratorStatement(session, administrator),
-    session.prepare(`INSERT INTO links (slug, title, destination, status, expires_at, created_at, updated_at, created_by) VALUES (?, ?, ?, 'active', ?, ?, ?, ?) ON CONFLICT(slug) DO NOTHING RETURNING ${LINK_COLUMNS}`)
-      .bind(slug, draft.title, draft.destination, draft.expiresAt ?? null, createdAt, createdAt, administrator.subject),
+    session.prepare("INSERT INTO links (slug, title, destination, status, expires_at, created_at, updated_at, created_by) SELECT ?, ?, ?, 'active', ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM creation_requests WHERE actor_subject = ? AND request_id = ?) ON CONFLICT(slug) DO NOTHING")
+      .bind(slug, draft.title, draft.destination, draft.expiresAt ?? null, createdAt, createdAt, administrator.subject, administrator.subject, draft.requestId),
     auditStatement(session, administrator, slug, "create", createdAt),
+    session.prepare("INSERT INTO creation_requests (actor_subject, request_id, request_hash, slug) SELECT ?, ?, ?, ? WHERE changes() > 0")
+      .bind(administrator.subject, draft.requestId, requestHash, slug),
+    session.prepare(RECEIPT_SELECT).bind(administrator.subject, draft.requestId),
   ]);
-  const row = results[1]?.results[0];
-  return row === undefined ? null : databaseLinkSchema.parse(row);
+  return classifyReceipt(results[4]?.results[0], requestHash);
 }
 
 export async function createLink(input: { database: D1Database; configuration: Configuration; administrator: Administrator; draft: CreateLink }): Promise<Link> {
   const { database, configuration, administrator, draft } = input;
-  const validatedDraft = { ...draft, destination: validateDestination(draft.destination, configuration), expiresAt: validateExpiry(draft.expiresAt) };
-  if (draft.slug?.trim()) {
-    const slug = parseCustomSlug(draft.slug);
-    if (slug === null) {
-      throw new ApplicationError("Use a non-reserved slug of lowercase letters, digits and internal hyphens, up to 48 characters.", 400);
-    }
-    const created = await insertLink(database, administrator, slug, validatedDraft);
-    if (created === null) {
-      throw new ApplicationError("That shortlink is already reserved.", 409);
-    }
+  const destination = canonicalDestination(draft.destination);
+  const slug = draft.slug?.trim() ? parseCustomSlug(draft.slug) : null;
+  if (draft.slug?.trim() && slug === null) {
+    throw new ApplicationError("Use a non-reserved slug of lowercase letters, digits and internal hyphens, up to 48 characters.", 400);
+  }
+  const expiresAt = draft.expiresAt == null ? null : new Date(draft.expiresAt).toISOString();
+  const bytes = new TextEncoder().encode(JSON.stringify([destination, draft.title.trim(), slug, expiresAt]));
+  const requestHash = draft.requestId === undefined ? null : Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  if (draft.requestId !== undefined && requestHash !== null) {
+    const row = await database.withSession("first-primary").prepare(RECEIPT_SELECT).bind(administrator.subject, draft.requestId).first();
+    const replay = classifyReceipt(row, requestHash);
+    if (replay !== null) return replay;
+  }
+  const validatedDraft = { ...draft, title: draft.title.trim(), destination: validateDestination(destination, configuration), expiresAt: validateExpiry(expiresAt) };
+  if (slug !== null) {
+    const created = await insertLink(database, administrator, slug, validatedDraft, requestHash);
+    if (created === null) throw new ApplicationError("That shortlink is already reserved.", 409);
     return created;
   }
   const session = database.withSession("first-primary");
@@ -95,14 +132,10 @@ export async function createLink(input: { database: D1Database; configuration: C
   for (let syllableCount = setting.value; syllableCount <= MAXIMUM_SYLLABLE_COUNT; syllableCount += 1) {
     for (let attemptCount = 0; attemptCount < COLLISION_ATTEMPTS_PER_LENGTH && allocationAttempts < MAXIMUM_ALLOCATION_ATTEMPTS; attemptCount += 1) {
       allocationAttempts += 1;
-      const created = await insertLink(database, administrator, generateSlug(syllableCount), validatedDraft);
-      if (created !== null) {
-        return created;
-      }
+      const created = await insertLink(database, administrator, generateSlug(syllableCount), validatedDraft, requestHash);
+      if (created !== null) return created;
     }
-    if (allocationAttempts >= MAXIMUM_ALLOCATION_ATTEMPTS) {
-      break;
-    }
+    if (allocationAttempts >= MAXIMUM_ALLOCATION_ATTEMPTS) break;
     if (syllableCount < MAXIMUM_SYLLABLE_COUNT) {
       // max keeps growth monotonic when concurrent allocations exhaust the same length.
       await session.prepare("UPDATE settings SET value = MAX(value, ?) WHERE name = 'generated_syllables'").bind(syllableCount + 1).run();
@@ -118,14 +151,14 @@ export async function updateLink(input: { database: D1Database; configuration: C
   const expiresAt = validateExpiry(patch.expiresAt);
   const updatedAt = new Date().toISOString();
   const session = database.withSession("first-primary");
-  const action = patch.status === "revoked" ? "revoke" : patch.status === "active" ? "restore" : "update";
   const results = await session.batch([
     administratorStatement(session, administrator),
-    session.prepare(`UPDATE links SET destination = COALESCE(?, destination), title = COALESCE(?, title), status = COALESCE(?, status), expires_at = CASE WHEN ? THEN ? ELSE expires_at END, updated_at = ? WHERE slug = ? AND status != 'deleted' AND NOT (destination IS COALESCE(?, destination) AND title IS COALESCE(?, title) AND status IS COALESCE(?, status) AND expires_at IS CASE WHEN ? THEN ? ELSE expires_at END) RETURNING ${LINK_COLUMNS}`)
-      .bind(destination, patch.title ?? null, patch.status ?? null, expiryProvided, expiresAt, updatedAt, slug, destination, patch.title ?? null, patch.status ?? null, expiryProvided, expiresAt),
-    auditStatement(session, administrator, slug, action, updatedAt),
+    session.prepare(`INSERT INTO audit_events (identifier, actor_subject, action, slug, created_at) SELECT ?, ?, CASE WHEN ? IS NOT NULL AND status != ? THEN CASE WHEN ? = 'revoked' THEN 'revoke' ELSE 'restore' END ELSE 'update' END, slug, ? FROM links WHERE slug = ? AND status != 'deleted' AND NOT (destination IS COALESCE(?, destination) AND title IS COALESCE(?, title) AND status IS COALESCE(?, status) AND expires_at IS CASE WHEN ? THEN ? ELSE expires_at END)`)
+      .bind(crypto.randomUUID(), administrator.subject, patch.status ?? null, patch.status ?? null, patch.status ?? null, updatedAt, slug, destination, patch.title ?? null, patch.status ?? null, expiryProvided, expiresAt),
+    session.prepare(`UPDATE links SET destination = COALESCE(?, destination), title = COALESCE(?, title), status = COALESCE(?, status), expires_at = CASE WHEN ? THEN ? ELSE expires_at END, updated_at = ? WHERE slug = ? AND changes() > 0 RETURNING ${LINK_COLUMNS}`)
+      .bind(destination, patch.title ?? null, patch.status ?? null, expiryProvided, expiresAt, updatedAt, slug),
   ]);
-  const row = results[1]?.results[0];
+  const row = results[2]?.results[0];
   if (row !== undefined) {
     return databaseLinkSchema.parse(row);
   }
@@ -145,7 +178,8 @@ export async function deleteLink(database: D1Database, slug: string, administrat
     auditStatement(session, administrator, slug, "delete", updatedAt),
   ]);
   if (results[1]?.results.length === 0) {
-    throw new ApplicationError("Shortlink not found.", 404);
+    const existing = await session.prepare("SELECT slug FROM links WHERE slug = ?").bind(slug).first();
+    if (existing === null) throw new ApplicationError("Shortlink not found.", 404);
   }
 }
 

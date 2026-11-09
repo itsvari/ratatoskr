@@ -24,11 +24,16 @@ export const siteSettingsSchema = z.object({
   homeRedirectUrl: homeRedirectUrlSchema.nullable(),
 }).strict();
 
-export const updateSiteSettingsSchema = siteSettingsSchema.extend({ previewHeader: previewSegmentSchema.optional() })
-  .refine((settings) => settings.displayName === DEFAULT_DISPLAY_NAME || settings.previewHeader !== undefined,
+export const siteSettingsPatchSchema = siteSettingsSchema.partial()
+  .refine((settings) => Object.keys(settings).length > 0, "Provide a change to apply.");
+export type SiteSettingsPatch = z.infer<typeof siteSettingsPatchSchema>;
+
+export const updateSiteSettingsSchema = siteSettingsSchema.partial().extend({ previewHeader: previewSegmentSchema.optional() })
+  .refine((settings) => settings.displayName !== undefined || settings.homeRedirectUrl !== undefined, "Provide a change to apply.")
+  .refine((settings) => settings.previewHeader === undefined || settings.displayName !== undefined, "Provide a display name with preview branding.")
+  .refine((settings) => settings.displayName === undefined || settings.displayName === DEFAULT_DISPLAY_NAME || settings.previewHeader !== undefined,
     "Generate the preview branding before saving the display name.");
 export type UpdateSiteSettings = z.infer<typeof updateSiteSettingsSchema>;
-
 export type SiteSettings = z.infer<typeof siteSettingsSchema>;
 
 export function linkExportFilename(displayName: string, date?: string): string {
@@ -53,6 +58,7 @@ export type Link = z.infer<typeof linkSchema>;
 export type LinkStatus = z.infer<typeof linkStatusSchema>;
 
 export const createLinkSchema = z.object({
+  requestId: z.uuid().optional(),
   destination: z.string().trim().min(1).max(MAXIMUM_DESTINATION_LENGTH),
   title: z.string().trim().max(MAXIMUM_TITLE_LENGTH).default(""),
   slug: z.string().trim().max(MAXIMUM_CUSTOM_SLUG_LENGTH).optional(),
