@@ -1,9 +1,12 @@
-import { readFileSync } from "node:fs";
+import { readDeploymentTarget } from "./deployment-configuration.ts";
 import { z } from "zod";
-import { cloudflare, deploymentStateSchema, DEPLOYMENT_STATE_PATH } from "./cloudflare.ts";
+import { cloudflare, DEPLOYMENT_CONFIGURATION_PATH } from "./cloudflare.ts";
 import { deploymentRequest } from "./deployment-http.ts";
 
-const state = deploymentStateSchema.parse(JSON.parse(readFileSync(DEPLOYMENT_STATE_PATH, "utf8")));
+const target = readDeploymentTarget(process.env.RATATOSKR_CONFIG ?? DEPLOYMENT_CONFIGURATION_PATH);
+const state = { shortOrigin: target.vars.SHORT_ORIGIN, adminOrigin: target.vars.ADMIN_ORIGIN,
+  previewOrigin: target.vars.PREVIEW_ORIGIN, accessIssuer: target.vars.ACCESS_ISSUER, databaseId: target.d1_databases[0].database_id };
+process.env.CLOUDFLARE_ACCOUNT_ID = target.account_id;
 const identifier = crypto.randomUUID();
 const slug = `verification-${identifier.replaceAll("-", "")}`;
 const subject = `verification:${identifier}`;

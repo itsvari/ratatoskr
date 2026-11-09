@@ -8,9 +8,10 @@ export default defineConfig({
   root: "admin",
   plugins: [react(), tailwindcss(), cloudflare({
     configPath: process.env.RATATOSKR_CONFIG ?? "../wrangler.jsonc",
-    persistState: { path: fileURLToPath(new URL("./.wrangler/state", import.meta.url)) },
+    persistState: { path: process.env.RATATOSKR_STATE_DIRECTORY ?? fileURLToPath(new URL("./.wrangler/state", import.meta.url)) },
+    ...(process.env.RATATOSKR_BUILD_DIRECTORY ? { viteEnvironment: { name: "worker" } } : {}),
   })],
   resolve: { alias: { "@": fileURLToPath(new URL("./admin", import.meta.url)) } },
-  build: { outDir: "../dist", emptyOutDir: true },
+  build: { outDir: process.env.RATATOSKR_BUILD_DIRECTORY ?? "../dist", emptyOutDir: true },
   server: { host: "127.0.0.1", port: 5173 },
 });

@@ -40,3 +40,10 @@ deployment-state.json
 verification-artifacts/
 admin/public/_fonts/
 backup*.sql
+
+.ratatoskr-deploy-*.json
+
+test-results/
+playwright-report/
+
+admin/.font-staging/

@@ -1,8 +1,11 @@
-import { readFileSync } from "node:fs";
+import { readDeploymentTarget } from "./deployment-configuration.ts";
 import { deploymentRequest as request } from "./deployment-http.ts";
-import { deploymentStateSchema, DEPLOYMENT_STATE_PATH } from "./cloudflare.ts";
+import { DEPLOYMENT_CONFIGURATION_PATH } from "./cloudflare.ts";
 
-const state = deploymentStateSchema.parse(JSON.parse(readFileSync(DEPLOYMENT_STATE_PATH, "utf8")));
+const target = readDeploymentTarget(process.env.RATATOSKR_CONFIG ?? DEPLOYMENT_CONFIGURATION_PATH);
+const state = { shortOrigin: target.vars.SHORT_ORIGIN, adminOrigin: target.vars.ADMIN_ORIGIN,
+  previewOrigin: target.vars.PREVIEW_ORIGIN, accessIssuer: target.vars.ACCESS_ISSUER, databaseId: target.d1_databases[0].database_id };
+process.env.CLOUDFLARE_ACCOUNT_ID = target.account_id;
 const MAXIMUM_ATTEMPTS = 12;
 const RETRY_DELAY_MS = 3000;
 

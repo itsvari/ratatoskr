@@ -28,7 +28,7 @@ With `--admin-subdomain`, administration and its API use `admin.example.com`. Th
 
 Setup reuses resources with the same deployment name. It refuses an unrelated Access application on the requested hostname or an existing policy that differs from the requested allowlist. Setup adds a restricted Cloudflare identity provider if needed. It does not change other Access applications or the organisation's existing login providers.
 
-Setup writes `wrangler.deploy.json` and `deployment-state.json`. Both are ignored by Git and contain resource identifiers and deployment settings, not credentials. Keep them for later deployments. To reconstruct them, rerun setup with the same options.
+Setup writes `wrangler.deploy.json` and `deployment-state.json`. Both are ignored by Git and contain resource identifiers and deployment settings, not credentials. The configuration is the deployment target; the state file is setup inventory. Keep them for later deployments. To reconstruct them, rerun setup with the same options.
 
 ## Publish and check the result
 
@@ -37,7 +37,7 @@ bun run deploy
 bun run verify:deployment
 ```
 
-Publication uses the generated Worker configuration under `dist/`. It applies outstanding D1 migrations and publishes the public, admin and optional preview custom domains. It disables `workers.dev` and version-preview URLs. No paid service is required by the application.
+Publication builds and validates a private generated Worker configuration before applying outstanding D1 migrations. It publishes the public, admin and optional preview custom domains. It disables `workers.dev` and version-preview URLs. No paid service is required by the application.
 
 DNS and TLS provisioning can take time. Verification retries briefly. If your system resolver has cached a DNS miss, verification queries Cloudflare DNS over HTTPS and connects to the returned address with normal hostname and TLS certificate validation. It does not change your system DNS configuration. Rerun verification after DNS propagation if needed.
 
@@ -77,7 +77,7 @@ To rehearse restoration, create a separate D1 database and apply the SQL backup 
 
 Before updating dependencies, export the database. Run `bun run verify`, check local browser behaviour, and deploy. Keep migrations compatible with the previous Worker during rollout. Worker code rollback does not roll back D1 schema or data.
 
-Use `bunx wrangler rollback --config dist/ratatoskr/wrangler.json` to restore a previous compatible Worker version. Keep a record of the version ID printed by each deployment. Test schema reversibility on a separate database before any destructive migration.
+Use `bunx wrangler rollback --config <generated-config-path>` with the path printed by the deployment to restore a previous compatible Worker version. Keep the generated configuration and record the version ID printed by each deployment. Artefacts are retained even when publication fails because the outcome can be ambiguous. Test schema reversibility on a separate database before any destructive migration.
 
 ## Configure local development
 
