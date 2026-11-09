@@ -710,11 +710,11 @@ The source was pushed to `origin/main` in logical units:
 | `ad5b716` | Admin request ownership, pending forms and browser regressions |
 | `775e01e` | State-machine reference and verification documentation |
 
-Before publication, `cf` captured live deployment metadata, Access configuration and database rows. A private 50,966-byte SQL backup was saved locally at `.git/state-machine-audit/redeployment/backup-before.sql`; it is not tracked. Wrangler's separate cached authentication initially failed, so its backup and deployment processes used the already-authenticated `cf` OAuth credential through a process-only environment variable. No credential or deployment configuration file was modified or committed.
+Before publication, `cf` captured live deployment metadata, Access configuration and database rows. A private 50,966-byte SQL backup was saved locally at `.git/state-machine-audit/redeployment/backup-before.sql`; it is not tracked. Wrangler's separate cached authentication initially failed, so its backup and deployment processes used the already-authenticated `cf` OAuth credential through a process-only environment variable. The CLI maintained its own authentication cache. No credentials were printed or committed, and both application deployment configuration files remained unchanged.
 
 After publication, exact comparisons confirmed unchanged Worker variables, database and rate-limit bindings, asset routing, compatibility settings, Access application/policies, local deployment configuration, all three original links, site settings, branding, preview bodies and existing audit records. `bun run verify:deployment` and `bun run verify:live-links` passed. The latter removed its uniquely named fixture; no verification links or administrators remain. Each original link also passed its redirect check, both preview routes and PNG decompression. These checks finished at 13:19 UTC.
 
-The authenticated browser check could not run: the browser access host was unavailable, and native browser access timed out or returned `cgWindowNotFound`. A human Access login and authenticated create/edit/revoke/delete flow remain a separate verification step. Direct-D1 fixture checks do not substitute for that login.
+The authenticated browser check could not run: the browser access host was unavailable, and native browser access timed out or returned `cgWindowNotFound`. A human Access login and authenticated create/edit/revoke/delete flow remain a separate verification step. Direct-D1 fixture checks do not substitute for that login. Issues 3–9 are closed with their implementation commits, deployment version, verification results and this remaining limitation recorded.
 
 ## Non-findings and concurrency limits
 
