@@ -4,7 +4,7 @@ This reference records the application and operational state machines audited on
 
 The tables describe the implemented state machines. The issue evidence preserves the original, reproduced failures and distinguishes executed reproductions from concrete source schedules. An **invariant** states the rule the implementation enforces. A type that permits an invalid combination is not, by itself, evidence that the application can reach it.
 
-All seven issue groups are implemented and locally verified. After the independent review and follow-up fixes, `bun install --frozen-lockfile` and `bun run verify` passed: type checks, 181 Workers/D1 tests, 26 Node tests, 17 browser tests, and the production build. Claude Opus 5.5 reviewed the design and implementation with fast mode disabled; its four low-severity findings are resolved below. The baseline verification passed 168 tests, type checks, and the production build. No Cloudflare deployment or production authentication test was performed for this work.
+All seven issue groups are implemented, locally verified and published. After the independent review and follow-up fixes, `bun install --frozen-lockfile` and `bun run verify` passed: type checks, 181 Workers/D1 tests, 26 Node tests, 17 browser tests, and the production build. Claude Opus 5.5 reviewed the design and implementation with fast mode disabled; its four low-severity findings are resolved below. The baseline verification passed 168 tests, type checks, and the production build. Production deployment and data-preservation checks are recorded below; the authenticated browser flow remains unverified.
 
 ## Issue register
 
@@ -625,8 +625,10 @@ Regression target: validate report identity, retain client samples and original 
 | Browser regression suite | 17 cases passed in final full verification | Real local D1 flows, desktop/mobile layouts, appearance, delayed responses, pending forms, retries and expiry checked |
 | `bun install --frozen-lockfile`; `bun run verify` | Passed | Type checks, all test suites and production build passed after the review follow-up changes |
 | Independent final Opus review | No blockers; four low-severity findings resolved | Opus independently reran Workers and Node tests; Astra reviewed and verified the follow-up fixes |
-| Final independent Claude Opus review | Pending | Design review completed earlier, implementation review is separate |
-| Live publication and authenticated login | Not performed | No claim about a newly deployed production flow |
+| Live publication and `bun run verify:deployment` | Passed | Existing Worker published; public routing and unauthenticated Access protection checked |
+| `bun run verify:live-links` | Passed, fixture removed | Live redirect, preview, edit, revoke, restore and delete behaviour exercised through a unique direct-D1 fixture |
+| Original production data | Three link rows and existing settings/branding/audits unchanged | Before/after database snapshots compared; three redirects, six previews and three decoded PNGs passed |
+| Authenticated production browser flow | Not completed: browser automation unavailable | No claim that the account's Access login or authenticated management mutations were tested live |
 
 Scratch reproductions were audit artefacts under `/tmp`. The original inputs and outcomes remain above. Permanent regressions are linked below. Workers/D1 tests retain `fsModuleCache: false`. Node filesystem/subprocess tests use `bun run test:node`. Playwright drives a local Vite/Worker application with isolated local D1 through `bun run test:admin`. Its server applies migrations with an explicit generated local configuration. Neither fake CLI responses nor local-mode browser checks prove the live Access login flow.
 
@@ -692,6 +694,27 @@ F2 proves a local validation omission, not a live Access precedence rule or auth
 Two non-blocking coverage gaps were also closed: generated deployment routes/custom domains are compared with the captured target before migration, ignoring object key order; and malformed preview headers use header-sized fixtures. Their cases are `generated routes match captured custom domains semantically` and `rejects malformed sections without changing images, branding or audits`. Recovery cases include `a busy new measurement is recoverable and can refresh events` and `a failed recovery reports both errors`.
 
 A PATCH that changes status and other fields intentionally records one revoke or restore action. If status is unchanged, its audit action is update. Pre-existing malformed preview data is not automatically repaired, and a browser reload or abandoned creation form starts a new command.
+
+## Production publication record
+
+On 9 November 2026, the existing `ratatoskr` Worker was redeployed from commit `775e01e` using `bun run deploy`. The active version is `4e092118-1c19-42c4-8fcf-fe3ee05231db`, serving the existing `v4ri.link`, `admin.v4ri.link` and `preview.v4ri.link` custom domains. Only outstanding migration `0005_creation_requests.sql` was applied; migrations 0001–0004 were already present. No setup or resource replacement was run.
+
+The source was pushed to `origin/main` in logical units:
+
+| Commit | Unit |
+| --- | --- |
+| `c1c433e` | Preserve the existing home-page redirect feature |
+| `307139d` | Retry-safe storage mutations, settings patches and preview validation |
+| `6879f48` | Deployment target isolation and Access validation |
+| `c0d0122` | Profiling identity, concurrent refresh and recovery |
+| `ad5b716` | Admin request ownership, pending forms and browser regressions |
+| `775e01e` | State-machine reference and verification documentation |
+
+Before publication, `cf` captured live deployment metadata, Access configuration and database rows. A private 50,966-byte SQL backup was saved locally at `.git/state-machine-audit/redeployment/backup-before.sql`; it is not tracked. Wrangler's separate cached authentication initially failed, so its backup and deployment processes used the already-authenticated `cf` OAuth credential through a process-only environment variable. No credential or deployment configuration file was modified or committed.
+
+After publication, exact comparisons confirmed unchanged Worker variables, database and rate-limit bindings, asset routing, compatibility settings, Access application/policies, local deployment configuration, all three original links, site settings, branding, preview bodies and existing audit records. `bun run verify:deployment` and `bun run verify:live-links` passed. The latter removed its uniquely named fixture; no verification links or administrators remain. Each original link also passed its redirect check, both preview routes and PNG decompression. These checks finished at 13:19 UTC.
+
+The authenticated browser check could not run: the browser access host was unavailable, and native browser access timed out or returned `cgWindowNotFound`. A human Access login and authenticated create/edit/revoke/delete flow remain a separate verification step. Direct-D1 fixture checks do not substitute for that login.
 
 ## Non-findings and concurrency limits
 
