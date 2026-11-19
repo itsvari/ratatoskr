@@ -6,14 +6,19 @@ import { cpus } from "node:os";
 import { execFileSync } from "node:child_process";
 import { parseArgs } from "node:util";
 import { z } from "zod";
+import { parseProfileTitle } from "./preview-profile-title.ts";
 
 const { values } = parseArgs({ options: {
   runs: { type: "string", default: "3" }, samples: { type: "string", default: "30" },
   name: { type: "string", default: "Ratatoskr" }, title: { type: "string", default: "Design notes & useful links" },
   output: { type: "string", default: "verification-artifacts/preview-profile.json" },
 } });
+// mirrors MAXIMUM_DISPLAY_NAME_LENGTH in shared/contracts.ts, which scripts cannot import.
+const MAXIMUM_DISPLAY_NAME_LENGTH = 48;
+const displayName = z.string().max(MAXIMUM_DISPLAY_NAME_LENGTH).parse(values.name);
 const runs = z.coerce.number().int().min(1).max(10).parse(values.runs);
 const sampleCount = z.coerce.number().int().min(2).max(100).parse(values.samples);
+const title = parseProfileTitle(values.title, sampleCount);
 if (process.platform !== "linux") throw new Error("This profiler requires Linux /proc task schedstat CPU accounting.");
 
 const binaries = new Map<string, string>();
@@ -110,14 +115,14 @@ for (let run = 0; run < runs; run += 1) {
     const pid = await runtimePid();
     const origin = await miniflare.unsafeGetDirectURL();
     const url = new URL("/image", origin);
-    url.searchParams.set("name", values.name!);
-    url.searchParams.set("title", values.title!);
+    url.searchParams.set("name", displayName);
+    url.searchParams.set("title", title);
     const cold = await sample(url, pid);
     const hits = [];
     for (let index = 0; index < sampleCount; index += 1) hits.push(await sample(url, pid));
     const misses = [];
     for (let index = 0; index < sampleCount; index += 1) {
-      url.searchParams.set("title", `${values.title} ${index}`);
+      url.searchParams.set("title", `${title} ${index}`);
       misses.push(await sample(url, pid));
     }
     const memory: unknown = await (await fetch(new URL("/memory", origin))).json();
@@ -133,5 +138,5 @@ await writeFile(values.output!, JSON.stringify({
   recordedAt: new Date().toISOString(), node: process.versions.node, cpu: cpus()[0]?.model,
   commit: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
   workerd: JSON.parse(await readFile("node_modules/workerd/package.json", "utf8")).version as unknown,
-  name: values.name, title: values.title, results,
+  name: displayName, title, results,
 }, null, 2));

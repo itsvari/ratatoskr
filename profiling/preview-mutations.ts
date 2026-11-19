@@ -3,6 +3,8 @@ import application from "../src/index";
 import type { Bindings } from "../src/configuration";
 import { previewUploadSchema, MAXIMUM_PREVIEW_UPLOAD_BYTES } from "../shared/preview-image";
 import { storePreviewImage } from "../src/preview-image";
+import { ApplicationError } from "../src/errors";
+import { readBoundedBytes } from "../src/request-body";
 import { updateSiteSettingsSchema } from "../shared/contracts";
 import { updateSiteSettings } from "../src/settings";
 
@@ -16,9 +18,15 @@ export default {
     if (request.method !== "POST" || !environment.PROFILE_TOKEN || request.headers.get("Authorization") !== `Bearer ${environment.PROFILE_TOKEN}`) {
       return new Response(null, { status: 401 });
     }
-    const text = await request.text();
-    if (new TextEncoder().encode(text).byteLength > MAXIMUM_PREVIEW_UPLOAD_BYTES) return new Response(null, { status: 413 });
-    const payload: unknown = JSON.parse(text);
+    if (!request.body) return new Response(null, { status: 400 });
+    let bytes: Uint8Array;
+    try {
+      bytes = await readBoundedBytes(request.body, MAXIMUM_PREVIEW_UPLOAD_BYTES);
+    } catch (error) {
+      if (error instanceof ApplicationError) return new Response(null, { status: error.status });
+      throw error;
+    }
+    const payload: unknown = JSON.parse(new TextDecoder().decode(bytes));
     if (path === "/__profile/image") {
       const { slug, upload } = imageSchema.parse(payload);
       await storePreviewImage(environment.DB, slug, upload);
