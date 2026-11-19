@@ -1,3 +1,5 @@
+import { withoutTrailingDots } from "./hostname";
+
 const MAXIMUM_METADATA_BYTES = 65_536;
 const METADATA_TIMEOUT_MS = 2_000;
 const MAXIMUM_REDIRECTS = 3;
@@ -9,12 +11,12 @@ export function isPreviewCrawler(userAgent: string): boolean {
 }
 
 function canFetchMetadata(url: URL, excludedOrigins: readonly (string | null)[]): boolean {
-  const hostname = url.hostname.replace(/\.$/, "");
+  const hostname = withoutTrailingDots(url.hostname);
   return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password
     && (!url.port || ["80", "443"].includes(url.port))
     && hostname.includes(".") && !/^[\d.]+$/.test(hostname) && !hostname.includes(":")
     && !/\.(?:localhost|local|internal|test|invalid|example)$/.test(hostname)
-    && !excludedOrigins.some((origin) => origin !== null && new URL(origin).hostname.replace(/\.$/, "") === hostname);
+    && !excludedOrigins.some((origin) => origin !== null && withoutTrailingDots(new URL(origin).hostname) === hostname);
 }
 
 async function readMetadata(response: Response): Promise<string> {

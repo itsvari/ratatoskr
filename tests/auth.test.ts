@@ -1,6 +1,6 @@
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { acceptsMutation, authenticate } from "../src/auth";
+import { acceptsManagementApiRequest, acceptsMutation, authenticate } from "../src/auth";
 import type { Configuration } from "../src/configuration";
 
 const OWNER_EMAIL = "owner@example.com";
@@ -56,5 +56,19 @@ describe("Cloudflare Access boundary", () => {
     expect(acceptsMutation(new Request(`${ADMIN_ORIGIN}/api/links`, { method: "POST", headers: { Origin: ADMIN_ORIGIN } }), configuration)).toBe(true);
     expect(acceptsMutation(new Request(`${ADMIN_ORIGIN}/api/links`, { method: "POST", headers: { Origin: "https://example.com", "Sec-Fetch-Site": "same-site" } }), configuration)).toBe(false);
     expect(acceptsMutation(new Request(`${ADMIN_ORIGIN}/api/links`, { method: "DELETE" }), configuration)).toBe(false);
+  });
+
+  it.each([["cross-site", false], ["same-site", false], ["same-origin", true], ["none", true]] as const)(
+    "classifies Sec-Fetch-Site %s on management API requests and mutations", (site, accepted) => {
+      const read = new Request(`${ADMIN_ORIGIN}/api/links`, { headers: { "Sec-Fetch-Site": site } });
+      expect(acceptsManagementApiRequest(read)).toBe(accepted);
+      const mutation = new Request(`${ADMIN_ORIGIN}/api/links`, { method: "POST", headers: { Origin: ADMIN_ORIGIN, "Sec-Fetch-Site": site } });
+      expect(acceptsMutation(mutation, configuration)).toBe(accepted);
+    });
+
+  it("accepts management API requests without fetch metadata and never inspects the Origin of reads", () => {
+    expect(acceptsManagementApiRequest(new Request(`${ADMIN_ORIGIN}/api/links`))).toBe(true);
+    expect(acceptsManagementApiRequest(new Request(`${ADMIN_ORIGIN}/api/links`, { headers: { Origin: "https://example.com" } }))).toBe(true);
+    expect(acceptsMutation(new Request(`${ADMIN_ORIGIN}/api/links`, { headers: { "Sec-Fetch-Site": "cross-site" } }), configuration)).toBe(true);
   });
 });

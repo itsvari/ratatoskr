@@ -1,4 +1,5 @@
 import { env, SELF } from "cloudflare:test";
+import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { linkSchema, sessionSchema } from "../shared/contracts";
 import { storePreviewImage } from "../src/preview-image";
@@ -259,5 +260,238 @@ describe("Worker request flow", () => {
     const exported = await SELF.fetch(`${ORIGIN}/api/export`);
     expect(exported.headers.get("Content-Disposition")).toContain("ratatoskr-links.json");
     expect(await exported.json()).toHaveLength(1);
+  });
+});
+
+const SECRET_MARKER = "source=original";
+const HSTS_VALUE = "max-age=31536000";
+const NOT_INDEXED = "noindex, nofollow";
+const productionEnvironment = {
+  ...env, SHORT_ORIGIN: "https://v4ri.link", ADMIN_ORIGIN: "https://admin.v4ri.link",
+  PREVIEW_ORIGIN: "https://preview.v4ri.link", ACCESS_ISSUER: "https://test.cloudflareaccess.com",
+  ACCESS_AUDIENCE: "test-audience", ADMIN_EMAILS: "owner@example.com", LOCAL_DEVELOPMENT: "true",
+};
+const sameOriginProductionEnvironment = { ...productionEnvironment, ADMIN_ORIGIN: "https://v4ri.link", PREVIEW_ORIGIN: "https://preview.v4ri.link" };
+
+async function fetchWith(environment: typeof productionEnvironment, url: string, init: RequestInit = {}): Promise<Response> {
+  return await worker.fetch(new Request(url, { redirect: "manual", ...init }), environment, createExecutionContext());
+}
+
+describe("Non-canonical path handling", () => {
+  const ENCODED_PATHS = ["/%61pi/links", "/%61pi/export", "/%61pi/settings", "/%61pi/session", "/%61dmin/", "/%0Api/links", "/a%70i/links",
+    "/%2561pi/links", "/api%2Flinks"];
+
+  beforeEach(async () => {
+    await create("notes");
+  });
+
+  it.each([
+    ["public host", productionEnvironment, "https://v4ri.link"],
+    ["preview host", productionEnvironment, "https://preview.v4ri.link"],
+    ["separate admin host", productionEnvironment, "https://admin.v4ri.link"],
+    ["same-origin deployment", sameOriginProductionEnvironment, "https://v4ri.link"],
+  ])("never exposes management data through encoded paths on the %s", async (_name, environment, origin) => {
+    for (const path of ENCODED_PATHS) {
+      const response = await fetchWith(environment, `${origin}${path}`);
+      const body = await response.text();
+      // %25 and %2F stay encoded in the routed path, so they are ordinary unknown paths and the admin host still demands Access first.
+      const staysEncoded = path === "/%2561pi/links" || path === "/api%2Flinks";
+      expect(response.status, path).toBe(staysEncoded && origin === "https://admin.v4ri.link" ? 401 : 404);
+      expect(body, path).not.toContain(SECRET_MARKER);
+      expect(body, path).not.toContain("example.com/notes");
+      expect(body, path).not.toContain("Ratatoskr\"");
+    }
+  });
+
+  it("refuses encoded paths on the local same-origin deployment while canonical paths still work", async () => {
+    expect((await SELF.fetch(`${ORIGIN}/%61pi/links`)).status).toBe(404);
+    expect((await SELF.fetch(`${ORIGIN}/%61pi/session`)).status).toBe(404);
+    const canonical = await SELF.fetch(`${ORIGIN}/api/links`);
+    expect(canonical.status).toBe(200);
+    expect(await canonical.text()).toContain(SECRET_MARKER);
+  });
+
+  it("lets local development serve escaped module paths without exempting management or production paths", async () => {
+    const WORKER_REFUSAL = "Link unavailable";
+    for (const path of ["/@fs/Users/example/My%20Project/shared/contracts.ts", "/node_modules/.vite/deps/a%20b.js", "/components/Caf%C3%A9.tsx"]) {
+      expect(await (await SELF.fetch(`${ORIGIN}${path}`)).text(), path).not.toContain(WORKER_REFUSAL);
+    }
+    for (const path of ["/%61pi/links.js", "/%61dmin/main.tsx", "/%61ssets/index.js"]) {
+      const response = await SELF.fetch(`${ORIGIN}${path}`);
+      expect(response.status, path).toBe(404);
+      expect(await response.text(), path).toContain(WORKER_REFUSAL);
+    }
+    for (const origin of ["https://v4ri.link", "https://admin.v4ri.link"]) {
+      const response = await fetchWith(productionEnvironment, `${origin}/@fs/Users/example/My%20Project/shared/contracts.ts`);
+      expect(response.status, origin).toBe(404);
+      expect(await response.text(), origin).toContain(WORKER_REFUSAL);
+    }
+  });
+
+  it("hides management routes from public hosts", async () => {
+    for (const origin of ["https://v4ri.link", "https://preview.v4ri.link"]) {
+      for (const path of ["/api/links", "/api/export", "/api/settings", "/api/session"]) {
+        const response = await fetchWith(productionEnvironment, `${origin}${path}`);
+        expect(response.status, path).toBe(404);
+        expect(await response.text()).not.toContain(SECRET_MARKER);
+      }
+    }
+  });
+});
+
+describe("Admin rate limiting on canonical paths", () => {
+  it("does not let encoded variants of management paths reach, or skip, the limiter", async () => {
+    const limit = vi.fn(async () => ({ success: true }));
+    const environment = { ...productionEnvironment, ADMIN_LIMITER: { limit } };
+    const response = await fetchWith(environment, "https://admin.v4ri.link/%61pi/links");
+    expect(response.status).toBe(404);
+    expect(limit).not.toHaveBeenCalled();
+  });
+
+  it("limits authenticated canonical management requests and refuses their encoded variants before the limiter", async () => {
+    const SIGNING_KEY_IDENTIFIER = "limiter-fixture";
+    const SUBJECT = "limiter-owner";
+    const keys = await generateKeyPair("RS256");
+    const signingKey = { ...(await exportJWK(keys.publicKey)), kid: SIGNING_KEY_IDENTIFIER };
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ keys: [signingKey] })));
+    const assertion = await new SignJWT({ email: "owner@example.com" })
+      .setProtectedHeader({ alg: "RS256", kid: SIGNING_KEY_IDENTIFIER })
+      .setSubject(SUBJECT).setIssuedAt().setIssuer(productionEnvironment.ACCESS_ISSUER)
+      .setAudience(productionEnvironment.ACCESS_AUDIENCE).setExpirationTime("1h").sign(keys.privateKey);
+    const headers = { "Cf-Access-Jwt-Assertion": assertion };
+    const limit = vi.fn(async () => ({ success: true }));
+    const environment = { ...productionEnvironment, ADMIN_LIMITER: { limit } };
+    expect((await fetchWith(environment, "https://admin.v4ri.link/api/links", { headers })).status).toBe(200);
+    expect(limit).toHaveBeenCalledWith({ key: SUBJECT });
+    limit.mockClear();
+    for (const path of ["/%61pi/links", "/%61pi/export", "/a%70i/links"]) {
+      expect((await fetchWith(environment, `https://admin.v4ri.link${path}`, { headers })).status, path).toBe(404);
+    }
+    expect(limit).not.toHaveBeenCalled();
+    const exhausted = { ...productionEnvironment, ADMIN_LIMITER: { limit: vi.fn(async () => ({ success: false })) } };
+    const limited = await fetchWith(exhausted, "https://admin.v4ri.link/api/links", { headers });
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBe("60");
+  });
+});
+
+describe("Transport security headers", () => {
+  it("sends HSTS on https responses and omits it over http loopback", async () => {
+    const secure = await fetchWith(productionEnvironment, "https://v4ri.link/_health");
+    expect(secure.headers.get("Strict-Transport-Security")).toBe(HSTS_VALUE);
+    expect((await fetchWith(productionEnvironment, "https://unknown.example/")).headers.get("Strict-Transport-Security")).toBe(HSTS_VALUE);
+    expect((await fetchWith(productionEnvironment, "https://admin.v4ri.link/api/links")).headers.get("Strict-Transport-Security")).toBe(HSTS_VALUE);
+    const local = await SELF.fetch(`${ORIGIN}/_health`);
+    expect(local.status).toBe(200);
+    expect(local.headers.get("Strict-Transport-Security")).toBeNull();
+  });
+
+  it("upgrades http requests for configured https hosts and preserves the path and query", async () => {
+    for (const host of ["v4ri.link", "admin.v4ri.link", "preview.v4ri.link"]) {
+      const response = await fetchWith(productionEnvironment, `http://${host}/notes+?a=1&b=%20x`);
+      expect(response.status).toBe(308);
+      expect(response.headers.get("Location")).toBe(`https://${host}/notes+?a=1&b=%20x`);
+      expect(response.headers.get("Strict-Transport-Security")).toBeNull();
+    }
+  });
+
+  it("does not upgrade unknown hosts, other ports or the http loopback origins", async () => {
+    expect((await fetchWith(productionEnvironment, "http://attacker.example/notes")).status).toBe(404);
+    expect((await fetchWith(productionEnvironment, "http://v4ri.link:8080/notes")).status).toBe(404);
+    expect((await SELF.fetch("http://127.0.0.1:5173/_health", { redirect: "manual" })).status).toBe(200);
+    expect((await SELF.fetch(`${ORIGIN}/_health`, { redirect: "manual" })).status).toBe(200);
+  });
+});
+
+describe("Public rate limiting", () => {
+  it("applies the public limiter to the home page and exempts only the static health check", async () => {
+    const limit = vi.fn(async () => ({ success: false }));
+    const environment = { ...productionEnvironment, PUBLIC_LIMITER: { limit } };
+    const home = await fetchWith(environment, "https://v4ri.link/");
+    expect(home.status).toBe(429);
+    expect(home.headers.get("Retry-After")).toBe("60");
+    expect((await fetchWith(environment, "https://preview.v4ri.link/")).status).toBe(429);
+    expect(limit).toHaveBeenCalledTimes(2);
+    const health = await fetchWith(environment, "https://v4ri.link/_health");
+    expect(health.status).toBe(200);
+    expect(limit).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("Robots directives", () => {
+  it("marks redirects as noindex and the home page, API responses and images as noindex, nofollow", async () => {
+    await create("notes");
+    const redirect = await SELF.fetch(`${ORIGIN}/notes`, { redirect: "manual" });
+    expect(redirect.status).toBe(302);
+    // redirects carry noindex without nofollow, so no crawler reads it as a reason not to follow the shortlink.
+    expect(redirect.headers.get("X-Robots-Tag")).toBe("noindex");
+    const upgrade = await fetchWith(productionEnvironment, "http://v4ri.link/notes");
+    expect(upgrade.status).toBe(308);
+    expect(upgrade.headers.get("X-Robots-Tag")).toBe("noindex");
+    expect((await SELF.fetch(`${ORIGIN}/`, { redirect: "manual" })).headers.get("X-Robots-Tag")).toBe(NOT_INDEXED);
+    expect((await SELF.fetch(`${ORIGIN}/api/links`)).headers.get("X-Robots-Tag")).toBe(NOT_INDEXED);
+    expect((await SELF.fetch(`${ORIGIN}/_preview/notes.png`)).headers.get("X-Robots-Tag")).toContain("noindex");
+  });
+
+  it("keeps the existing per-response values on previews and unavailable pages", async () => {
+    await create("notes");
+    expect((await SELF.fetch(`${ORIGIN}/notes+`)).headers.get("X-Robots-Tag")).toBe(NOT_INDEXED);
+    expect((await SELF.fetch(`${ORIGIN}/missing`)).headers.get("X-Robots-Tag")).toBe("noindex");
+  });
+});
+
+describe("Fetch metadata on management reads", () => {
+  beforeEach(async () => {
+    await create("notes");
+  });
+
+  it.each(["cross-site", "same-site"])("rejects %s API reads of any kind", async (site) => {
+    for (const path of ["/api/links", "/api/export", "/api/settings", "/api/session"]) {
+      const response = await SELF.fetch(`${ORIGIN}${path}`, { headers: { "Sec-Fetch-Site": site } });
+      expect(response.status, path).toBe(403);
+      expect(await response.json()).toEqual({ error: "This request must come from the admin panel." });
+    }
+    const head = await SELF.fetch(`${ORIGIN}/api/links`, { method: "HEAD", headers: { "Sec-Fetch-Site": site } });
+    expect(head.status).toBe(403);
+  });
+
+  it.each([{ "Sec-Fetch-Site": "same-origin" }, { "Sec-Fetch-Site": "none" }, {}])("accepts API reads with headers %j", async (headers) => {
+    const response = await SELF.fetch(`${ORIGIN}/api/links`, { headers });
+    expect(response.status).toBe(200);
+  });
+
+  it("does not reject cross-site navigations to the admin page or its assets", async () => {
+    for (const path of ["/", "/admin", "/admin/", "/assets/missing.js"]) {
+      const response = await SELF.fetch(`${ORIGIN}${path}`, { headers: { "Sec-Fetch-Site": "cross-site" }, redirect: "manual" });
+      expect(response.status, path).not.toBe(403);
+    }
+  });
+
+  it("rejects cross-site API reads on a separate admin host once authenticated", async () => {
+    const response = await fetchWith({ ...productionEnvironment, ADMIN_ORIGIN: "http://localhost:5173", SHORT_ORIGIN: "https://v4ri.link", PREVIEW_ORIGIN: "" },
+      "http://localhost:5173/api/links", { headers: { "Sec-Fetch-Site": "cross-site" } });
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("Trailing-dot hostnames", () => {
+  it("rejects destinations that point back at the shortener through extra trailing dots", async () => {
+    for (const destination of ["http://localhost../x", "http://localhost./x"]) {
+      const response = await SELF.fetch(`${ORIGIN}/api/links`, {
+        method: "POST", headers: { "Content-Type": "application/json", Origin: ORIGIN },
+        body: JSON.stringify({ destination, title: "Loop" }),
+      });
+      expect(response.status, destination).toBe(400);
+    }
+  });
+
+  it("never lets the crawler probe fetch a local-suffix host written with extra dots", async () => {
+    await create("dotted");
+    await env.DB.prepare("UPDATE links SET destination = 'https://example.local../x' WHERE slug = 'dotted'").run();
+    const outbound = vi.fn();
+    vi.stubGlobal("fetch", outbound);
+    const response = await SELF.fetch(`${ORIGIN}/dotted`, { headers: { "User-Agent": "Discordbot" }, redirect: "manual" });
+    expect(response.status).toBe(200);
+    expect(outbound).not.toHaveBeenCalled();
   });
 });

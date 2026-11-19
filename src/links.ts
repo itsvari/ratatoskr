@@ -3,6 +3,7 @@ import { linkSchema, MAXIMUM_CUSTOM_SLUG_LENGTH, type CreateLink, type Link, typ
 import type { Administrator } from "./auth";
 import type { Configuration } from "./configuration";
 import { ApplicationError } from "./errors";
+import { withoutTrailingDots } from "./hostname";
 import { generateSlug, INITIAL_SYLLABLE_COUNT, parseCustomSlug } from "./slugs";
 
 const PAGE_SIZE = 50;
@@ -43,9 +44,9 @@ function canonicalDestination(destination: string): string {
 
 export function validateDestination(destination: string, configuration: Configuration): string {
   const canonical = canonicalDestination(destination);
-  const destinationHostname = new URL(canonical).hostname.replace(/\.$/, "");
+  const destinationHostname = withoutTrailingDots(new URL(canonical).hostname);
   const shortenerOrigins = [configuration.shortOrigin, configuration.adminOrigin, configuration.previewOrigin];
-  if (shortenerOrigins.some((origin) => origin !== null && new URL(origin).hostname.replace(/\.$/, "") === destinationHostname)) {
+  if (shortenerOrigins.some((origin) => origin !== null && withoutTrailingDots(new URL(origin).hostname) === destinationHostname)) {
     throw new ApplicationError("Destinations cannot point back to this shortener.", 400);
   }
   return canonical;

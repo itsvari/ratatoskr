@@ -84,7 +84,7 @@ describe("Social preview detection", () => {
     expect(outbound).toHaveBeenCalledTimes(4);
   });
 
-  it.each(["http://127.0.0.1/", "http://0x7f000001/", "http://[::1]/", "http://169.254.169.254/", "http://localhost/", "http://service.internal/", "https://example.com:8443/", "https://owner:secret@example.com/", "https://links.example.com/other"])("never fetches restricted destinations or redirect targets: %s", async (target) => {
+  it.each(["http://127.0.0.1/", "http://0x7f000001/", "http://[::1]/", "http://169.254.169.254/", "http://localhost/", "http://service.internal/", "https://example.com:8443/", "https://owner:secret@example.com/", "https://links.example.com/other", "http://localhost../", "https://service.internal../", "https://example.local../", "https://links.example.com../other"])("never fetches restricted destinations or redirect targets: %s", async (target) => {
     const outbound = vi.fn(async () => new Response(null, { status: 302, headers: { Location: target } }));
     vi.stubGlobal("fetch", outbound);
     const excludedOrigins = ["https://links.example.com"];

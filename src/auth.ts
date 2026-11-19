@@ -10,6 +10,7 @@ export interface Administrator {
 const claimsSchema = z.object({ sub: z.string().min(1), email: z.email(), exp: z.number(), iat: z.number() });
 const signingKeys = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 const UNSAFE_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
+const CROSS_ORIGIN_FETCH_SITES = new Set(["cross-site", "same-site"]);
 
 export async function authenticate(request: Request, configuration: Configuration): Promise<Administrator | null> {
   if (configuration.localDevelopment && new URL(request.url).origin === configuration.adminOrigin) {
@@ -39,10 +40,19 @@ export async function authenticate(request: Request, configuration: Configuratio
   }
 }
 
+function hasAcceptableFetchSite(request: Request): boolean {
+  return !CROSS_ORIGIN_FETCH_SITES.has(request.headers.get("Sec-Fetch-Site") ?? "");
+}
+
+// the admin panel only calls its API from its own origin, so cross-site or same-site fetch metadata on any method,
+// including reads, means another site initiated the request.
+export function acceptsManagementApiRequest(request: Request): boolean {
+  return hasAcceptableFetchSite(request);
+}
+
 export function acceptsMutation(request: Request, configuration: Configuration): boolean {
   if (!UNSAFE_METHODS.has(request.method)) {
     return true;
   }
-  return request.headers.get("Origin") === configuration.adminOrigin
-    && !["cross-site", "same-site"].includes(request.headers.get("Sec-Fetch-Site") ?? "");
+  return request.headers.get("Origin") === configuration.adminOrigin && hasAcceptableFetchSite(request);
 }

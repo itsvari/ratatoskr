@@ -32,6 +32,12 @@ beforeEach(async () => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("authoritative D1 link storage", () => {
+  it.each(["https://admin.v4ri.link/x", "https://admin.v4ri.link./x", "https://admin.v4ri.link../x", "https://v4ri.link.../x"])(
+    "rejects self-referencing destinations however many trailing dots they carry: %s", async (destination) => {
+      await expect(createLink({ database: env.DB, configuration, administrator, draft: { ...draft, destination } }))
+        .rejects.toMatchObject({ status: 400 });
+    });
+
   it("replays concurrent keyed creations and clears the receipt hash on deletion", async () => {
     const requestId = crypto.randomUUID();
     const request = () => createLink({ database: env.DB, configuration, administrator, draft: { ...draft, requestId } });
