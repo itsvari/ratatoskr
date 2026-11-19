@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { z } from "zod";
 import { atomicWrite } from "./deployment-configuration.ts";
-import { applicationSchema, applicationSummarySchema, findExistingApplication, validateApplication } from "./deployment-access.ts";
+import { ACCESS_SESSION_DURATION, accessOrganisationSchema, applicationSchema, applicationSummarySchema, findExistingApplication, validateApplication } from "./deployment-access.ts";
 import { cloudflare, DEPLOYMENT_CONFIGURATION_PATH, DEPLOYMENT_STATE_PATH, deploymentStateSchema } from "./cloudflare.ts";
 
 const { values } = parseArgs({ options: {
@@ -25,7 +25,7 @@ const administratorEmails = (values.email ?? identity.email).split(",").map((ema
 const zones = cloudflare(["zones", "list", "--name", domain, "--account-id", accountId], z.array(z.object({ id: z.string(), name: z.string(), status: z.string() })));
 const zone = zones.find((candidate) => candidate.name === domain && candidate.status === "active");
 if (!zone) throw new Error("The requested domain must be an active zone in the selected account.");
-const organisation = cloudflare(["zero-trust", "organization", "get"], z.object({ auth_domain: z.string().endsWith(".cloudflareaccess.com") }));
+const organisation = cloudflare(["zero-trust", "organization", "get"], accessOrganisationSchema);
 const shortOrigin = `https://${domain}`;
 const adminOrigin = values["admin-subdomain"] ? `https://admin.${domain}` : shortOrigin;
 const previewOrigin = values["preview-subdomain"] ? `https://preview.${domain}` : null;
@@ -48,10 +48,10 @@ const application = existing
   ? cloudflare(["zero-trust", "access", "applications", "get", existing.id], applicationSchema)
   : cloudflare(["zero-trust", "access", "applications", "create", "--body", JSON.stringify({
     name: applicationName, domain: applicationDomain, type: "self_hosted", self_hosted_domains: domains,
-    session_duration: "8h", allowed_idps: [identityProvider.id], auto_redirect_to_identity: true,
+    session_duration: ACCESS_SESSION_DURATION, allow_authenticate_via_warp: false, allowed_idps: [identityProvider.id], auto_redirect_to_identity: true,
     policies: [{ name: "Administrators", decision: "allow", include: administratorEmails.map((email) => ({ email: { email } })) }],
   })], applicationSchema);
-validateApplication(application, applicationName, applicationDomain, domains, identityProvider.id, administratorEmails);
+validateApplication(application, applicationName, applicationDomain, domains, identityProvider.id, administratorEmails, organisation);
 
 const databases = cloudflare(["d1", "list"], z.array(z.object({ uuid: z.string(), name: z.string() })));
 const database = databases.find((candidate) => candidate.name === workerName)
