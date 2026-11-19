@@ -9,7 +9,7 @@ const originSchema = z.url().refine((value) => {
   return url.protocol === "https:" && url.origin === value && !url.username && !url.password;
 });
 const configurationSchema = z.object({
-  name: z.string().min(1), account_id: z.string().min(1), main: z.string().min(1),
+  name: z.string().min(1), workers_dev: z.literal(false), preview_urls: z.literal(false), account_id: z.string().min(1), main: z.string().min(1),
   assets: z.object({ directory: z.string().min(1) }).passthrough(),
   vars: z.object({
     SHORT_ORIGIN: originSchema, ADMIN_ORIGIN: originSchema,
