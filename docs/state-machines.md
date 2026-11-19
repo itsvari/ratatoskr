@@ -6,6 +6,8 @@ The tables describe the implemented state machines. The issue evidence preserves
 
 All seven issue groups are implemented, locally verified and published. After the independent review and follow-up fixes, `bun install --frozen-lockfile` and `bun run verify` passed: type checks, 181 Workers/D1 tests, 26 Node tests, 17 browser tests, and the production build. Claude Opus 5.5 reviewed the design and implementation with fast mode disabled; its four low-severity findings are resolved below. The baseline verification passed 168 tests, type checks, and the production build. Production deployment and data-preservation checks are recorded below; the authenticated browser flow remains unverified.
 
+The November 2026 security audit and its remediation are recorded separately in [the security audit record](security-audit.md). The admission, public-route, probe, setup and verification tables below include its changes.
+
 ## Issue register
 
 | Priority | Issue | Baseline failure | Impact | Status |
@@ -48,7 +50,9 @@ Sources: [src/configuration.ts](../src/configuration.ts), `loadConfiguration`. [
 | Unvalidated configuration | Invalid origin, missing production Access settings, or conflicting preview origin | Rejected |
 | Unvalidated configuration | Local flag is true and configured admin origin is HTTP loopback | Local configuration |
 | Unvalidated configuration | Otherwise valid settings | Production configuration with local authentication disabled |
+| Configured | Plain HTTP request whose host is a configured HTTPS origin | 308 to the same path and query over HTTPS |
 | Configured | Request origin is outside configured origins | 404 |
+| Allowed origin | Decoded routing path differs from the raw path, other than an escaped local Vite module path | 404 before routing or any D1 read |
 | Allowed origin | GET or HEAD of a fixed public font path | Static font response |
 | Short origin with separate admin | `/admin` or a child path | Redirect to the configured admin origin |
 | Admin origin | Separate admin host, management path, or eligible local asset | Management admission |
@@ -56,7 +60,7 @@ Sources: [src/configuration.ts](../src/configuration.ts), `loadConfiguration`. [
 | Public or preview origin | Method other than GET or HEAD | 405 |
 | Public or preview origin | Other allowed request | Public dispatch |
 
-Invariant: a separate admin host keeps public-host `/api/*` inaccessible. The fixed font exception exposes no management operation. Production cannot enable the local identity merely by setting `LOCAL_DEVELOPMENT=true` on an HTTPS origin.
+Invariant: classification, limiters and the router all use one canonical path, so a percent-encoded path cannot be classified as public and routed as management. A separate admin host keeps public-host `/api/*` inaccessible. The fixed font exception exposes no management operation. Production cannot enable the local identity merely by setting `LOCAL_DEVELOPMENT=true` on an HTTPS origin.
 
 ### Management admission and signing keys
 
@@ -72,8 +76,10 @@ Sources: [src/auth.ts](../src/auth.ts), `authenticate` and `acceptsMutation`. [s
 | Verifying | RS256 signature, issuer, audience, required claims, expiry, and email allowlist pass | Authorised administrator |
 | Verifying | Any validation or key-fetch failure | 401, no mutation |
 | Authorised mutation | Origin is not the exact admin origin, or Fetch Metadata rejects the request | 403 |
+| Authorised API request | Fetch Metadata reports cross-site or same-site, for any method | 403 |
 | Authorised production API request | Management limiter denies | 429 with `Retry-After` |
 | Authorised request | Remaining checks pass | Handler |
+| Management API handler | No administrator attached to the request | 404 JSON, as for an unknown API path |
 | Failed resolver fetch | A later request verifies | Dependency retries the fetch |
 
 No authentication bypass was confirmed. The installed dependency clears pending fetch state after completion and prevents an obsolete overlapping refresh from replacing newer keys.
@@ -215,7 +221,7 @@ Source: [src/index.ts](../src/index.ts), public handler. Link availability comes
 
 | From | Event or guard | Next state and effect |
 | --- | --- | --- |
-| Public route other than root or health | Public limiter denies | 429 without link lookup |
+| Public route other than health | Public limiter denies | 429 with `Retry-After`, without a settings or link lookup |
 | Short-origin root | Home URL is null | Built-in home page |
 | Short-origin root | Home URL is present | 302 to stored URL |
 | Preview-origin root | Any settings | 404 |
@@ -234,7 +240,7 @@ Sources: [src/social-preview.ts](../src/social-preview.ts), `isPreviewCrawler`, 
 
 | From | Event or guard | Next state and effect |
 | --- | --- | --- |
-| Target validation | Malformed URL, credentials, unsupported scheme or port, IP literal, internal name, or own hostname | Fallback without fetching target |
+| Target validation | Malformed URL, credentials, unsupported scheme or port, IP literal, internal name, or own hostname, ignoring any trailing dots | Fallback without fetching target |
 | Allowed target | Start or allowed redirect hop | Credential-free fetch with manual redirects |
 | Fetching | Redirect with Location and remaining hop budget | Resolve and validate the next target |
 | Fetching | Another redirect after three followed redirects | Fallback, at most four fetches |
@@ -415,7 +421,7 @@ Sources: [scripts/setup.ts](../scripts/setup.ts), provisioning sequence. [script
 | Application inspection | Private destination or application without a public destination | Ignore that destination during other-application overlap checks; own-app validation remains strict |
 | Application inspection passes | Restricted provider exists | Reuse provider |
 | Application inspection passes | Provider missing | Create provider, or stop on failure |
-| Provider ready | Expected app exists | Fetch full policy and validate exact coverage and policy |
+| Provider ready | Expected app exists | Fetch full policy and validate exact coverage, policy, a session of at most eight hours and no effective WARP session precedence |
 | Provider ready | App absent | Create expected app, then validate the response by the same rules |
 | Access validated | Named D1 database exists | Reuse database |
 | Access validated | Database absent | Create with replication disabled |
@@ -423,7 +429,7 @@ Sources: [scripts/setup.ts](../scripts/setup.ts), provisioning sequence. [script
 | Any side-effect phase | CLI or disk failure | Stop with partial remote state or complete old/new local files |
 | Failed setup | Same options retried | Rediscover completed resources and validate before reuse |
 
-Effective destinations support current `destinations[].uri`, legacy `self_hosted_domains`, and a singleton `domain`. Non-empty conflicting representations reject. The policy must have one allow rule, exactly the requested emails and identity provider, and no exclusions or requirements. Hostnames and root forms are normalised. Non-root path case and wildcard semantics remain distinct. Overlap detection rejects broader and narrower literal paths at segment boundaries, and conservatively rejects wildcard coverage. A separate literal path such as `/administrator` does not overlap `/admin`.
+Effective destinations support current `destinations[].uri`, legacy `self_hosted_domains`, and a singleton `domain`. The owned application may not carry non-empty destination `overrides`, which can make a matching path public, or an enabled `options_preflight_bypass`. Non-empty conflicting representations reject. The policy must have one allow rule, exactly the requested emails and identity provider, and no exclusions or requirements. The effective session may not exceed the eight hours setup creates. A policy's own duration overrides the application's, and the application's duration, with a missing value counting as Cloudflare's 24-hour default, governs any policy without one. Setup creates the application with Cloudflare One Client (WARP) authentication disabled. Reuse rejects an application whose own setting, or the organisation setting it inherits, enables it, because the client session would take precedence. Hostnames and root forms are normalised. Non-root path case and wildcard semantics remain distinct. Overlap detection rejects broader and narrower literal paths at segment boundaries, and conservatively rejects wildcard coverage. A separate literal path such as `/administrator` does not overlap `/admin`.
 
 The configuration and inventory can still represent different setup runs after interruption. Only `wrangler.deploy.json` selects deployment targets, so inventory drift cannot redirect a deployment. No shared remote resource is rolled back automatically. Concurrent creation can leave duplicates or return API conflicts. Retries validate ownership and policy instead of silently replacing resources.
 
@@ -434,10 +440,13 @@ Sources: [scripts/deploy.ts](../scripts/deploy.ts), publication sequence. [scrip
 | From | Event | Next state and effect |
 | --- | --- | --- |
 | Unconfigured | Missing or invalid canonical target | Fail before build or remote mutation |
-| Configured | Read and validate canonical target once | Capture target and write unique sibling snapshot |
-| Target captured | Build | Write only this run's `.wrangler/deployments/<UUID>/dist` |
+| Configured | Read and validate canonical target once | Capture target |
+| Target captured | `.wrangler` or `.wrangler/deployments` exists but is a symlink, junction or file | Refuse before writing a snapshot, sweeping or creating output |
+| Target captured | Both roots are real directories or absent | Write unique sibling snapshot |
+| Snapshot written | Sweep earlier retained outputs | Remove `.dev.vars` and `.env` copies only from UUID-named `.wrangler/deployments/<UUID>/dist/worker` directories whose components are all real directories inside the checkout's retained-output root. Symlinked components, other names and directories that disappear mid-sweep are skipped |
+| Swept | Build | Write only this run's `.wrangler/deployments/<UUID>/dist` |
 | Built | Generated target or main/assets paths disagree | Fail before migration, remove this run's output |
-| Built | Generated configuration matches captured target | Migrate captured database and account |
+| Built | Generated configuration matches captured target | Remove `.dev.vars` and `.env` copies beside the generated Worker configuration, then migrate captured database and account |
 | Migrating | Command succeeds | Publish fixed `worker/wrangler.json` from private output |
 | Publishing | Wrangler succeeds | Verify captured origins through the same snapshot |
 | Verifying | Public checks pass | Verified public behaviour, real login remains separate |
@@ -466,9 +475,9 @@ Sources: [scripts/deployment-http.ts](../scripts/deployment-http.ts), `deploymen
 | Verification attempt | All checks pass | Verified |
 | Twelfth attempt | Failure | Stop without rollback |
 
-Verification proves public routing and unauthenticated rejection. A Worker 401 or 403 does not prove that Cloudflare Access protected the request at the edge. Authenticated login requires a real browser session.
+Verification checks public routing, HTTPS enforcement and unauthenticated rejection from live responses. The admin page and each sampled management probe pass only on a 302 to the configured team domain's `/cdn-cgi/access/login/<requested hostname>` whose single `kid` equals the deployment's Access audience, the form Cloudflare's own Access plugin generates. A Worker rejection, a `cf-mitigated` challenge and any other answer each fail with their own message. Percent-encoded management paths on the public, preview and separate admin hostnames must return 404 or that Access redirect. The plain management API paths must return 404 on the preview hostname whenever one is configured, and on the public hostname when administration uses a separate hostname. Edge Access coverage is inferred from these responses rather than read from the Access configuration. Worker-local tests do not establish live edge behaviour. Authenticated login requires a real browser session.
 
-The attempt counter does not bound total elapsed time because fetches lack an explicit timeout. The fixed missing-link sentinel is technically claimable. Neither a production hang nor a sentinel collision was reproduced in this audit.
+The attempt counter does not bound total elapsed time because fetches lack an explicit timeout. The missing-link sentinel `/verification--does-not-exist` contains consecutive hyphens, which the slug grammar rejects, so no link can claim it. A production hang was not reproduced in this audit.
 
 ### Live-link fixture lifecycle
 
@@ -726,5 +735,5 @@ The authenticated browser check could not run: the browser access host was unava
 - A representable combination of dialog booleans, or missing synchronous double-click lock alone, does not prove a reachable UI failure.
 - Missing singleton rows, manually corrupted settings, DNS rebinding, ignored abort signals in artificial mocks, and bundled Wasm initialisation failure were not established as reachable production bugs here.
 - Setup retries may encounter remote resources created by an earlier partial run. They must validate ownership and policy. This audit did not prove that concurrent setup silently replaces unrelated resources.
-- Verification retry counts do not establish a total deadline. Public rejection checks do not establish authenticated access or edge Access coverage.
+- Verification retry counts do not establish a total deadline. Public rejection checks do not establish authenticated access. Edge Access coverage is inferred from the response's origin, login path and audience. A custom edge rule that imitates the Access login redirect could still mislead it.
 - The current public image implementation assembles stored sections. Older README descriptions of a server render cache are not evidence that such a cache exists.

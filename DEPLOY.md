@@ -26,7 +26,7 @@ The default Worker and database name is `ratatoskr`. Set `--name` for another de
 
 With `--admin-subdomain`, administration and its API use `admin.example.com`. The public hostname's `/admin/` redirects there; its `/api` endpoints return 404. Without that flag, administration uses `example.com/admin/`, and Access protects the admin, API and asset paths. With `--preview-subdomain`, `preview.example.com/slug` provides previews. The `slug+` suffix always works.
 
-Setup reuses resources with the same deployment name. It refuses an unrelated Access application on the requested hostname or an existing policy that differs from the requested allowlist. Setup adds a restricted Cloudflare identity provider if needed. It does not change other Access applications or the organisation's existing login providers.
+Setup reuses resources with the same deployment name. It refuses an unrelated Access application on the requested hostname or an existing policy that differs from the requested allowlist. It creates the Access application with an eight-hour session and with Cloudflare One Client (WARP) authentication disabled. It refuses to reuse an application whose application or policy session lasts longer, or that lets the client session take precedence. An application without a session duration counts as Cloudflare's 24-hour default, and one without its own WARP setting inherits the organisation's. Setup adds a restricted Cloudflare identity provider if needed. It does not change other Access applications or the organisation's existing login providers.
 
 Setup writes `wrangler.deploy.json` and `deployment-state.json`. Both are ignored by Git and contain resource identifiers and deployment settings, not credentials. The configuration is the deployment target; the state file is setup inventory. Keep them for later deployments. To reconstruct them, rerun setup with the same options.
 
@@ -37,7 +37,9 @@ bun run deploy
 bun run verify:deployment
 ```
 
-Publication builds and validates a private generated Worker configuration before applying outstanding D1 migrations. It publishes the public, admin and optional preview custom domains. It disables `workers.dev` and version-preview URLs. No paid service is required by the application.
+Publication builds and validates a private generated Worker configuration before applying outstanding D1 migrations. It publishes the public, admin and optional preview custom domains. It disables `workers.dev` and version-preview URLs; deployment validation rejects a target configuration that enables either. No paid service is required by the application.
+
+The Worker redirects plain HTTP requests for its configured hostnames to HTTPS and sends `Strict-Transport-Security` without `includeSubDomains` or `preload`. Cloudflare's zone-level **Always Use HTTPS** setting is compatible and answers with its own 301. Add `includeSubDomains` or preload only at the zone, and only after checking that every subdomain serves HTTPS. A zone-level HSTS setting must replace the Worker's header rather than add a second one: verification requires exactly one `Strict-Transport-Security` field.
 
 DNS and TLS provisioning can take time. Verification retries briefly. If your system resolver has cached a DNS miss, verification queries Cloudflare DNS over HTTPS and connects to the returned address with normal hostname and TLS certificate validation. It does not change your system DNS configuration. Rerun verification after DNS propagation if needed.
 
@@ -51,13 +53,22 @@ Then sign in through Access and complete these checks in the admin panel:
 6. Check that the deleted slug cannot be recreated.
 7. Switch appearance modes and check that the preference survives reload.
 
-The automatic deployment check verifies unauthenticated protection. The tests verify signed JWT processing with real cryptography. Neither replaces a browser check of your account's login.
+The automatic deployment check verifies unauthenticated behaviour over HTTP. It checks:
+
+- that `/_health` on the public and preview hostnames returns the Worker's health response with exactly one valid `Strict-Transport-Security` field of at least one year;
+- that an unclaimable missing-link path on both hostnames returns a 404 with a bare `no-store` directive, no `must-understand`, and no cache-hit evidence such as `Age` or a `CF-Cache-Status` of `HIT`;
+- that plain HTTP requests to the public, preview and admin hostnames receive a permanent (301 or 308) redirect to the same HTTPS URL, query included. On the admin hostname, an Access login redirect also passes;
+- that unauthenticated requests to the admin page and a sample of management paths receive a Cloudflare Access login redirect for the requested hostname, on your team domain, whose `kid` is this deployment's Access audience. The sample is `/api/links`, `/api/export`, `/api/settings`, `/api/session`, `/api/links/verification-probe`, `/api/links/verification-probe/image`, `/assets/index.js` and `/assets/`. Any other answer fails. Verification reports separately when the Worker answered, which means Access does not cover the path at the edge, when another Access application answered, when a WAF or bot challenge answered, and when the result is inconclusive. In the inconclusive case, check the Access application's destinations in the Cloudflare dashboard;
+- that `/api/links`, `/api/export`, `/api/settings` and `/api/session` return 404 on the preview hostname whenever one is configured, and on the public hostname when administration uses a separate hostname;
+- that percent-encoded management paths such as `/%61pi/links` on the public, preview and separate admin hostnames return 404 or this application's Access login redirect, never data.
+
+These checks infer edge coverage from a sample of responses; they do not read the Access configuration or prove every path. Setup separately rejects Access destination overrides, which could make a path public, and an enabled preflight bypass. The tests verify signed JWT processing with real cryptography. Neither replaces a browser check of your account's login.
 
 For an optional live public-behaviour check, run `bun run verify:live-links`. This writes a uniquely named temporary fixture directly to the deployment's D1 database, checks redirects and both previews through HTTPS, changes its destination and status, then removes only that fixture. It requires authenticated `cf` database access. It does not test the authenticated management API or replace the browser checks above.
 
 ## Change administrators
 
-Update the Access application's email allowlist and `ADMIN_EMAILS` in `wrangler.deploy.json` together. Both controls must authorise the administrator. Keep the Cloudflare identity provider restricted to account members. Redeploy after updating Worker variables.
+Update the Access application's email allowlist and `ADMIN_EMAILS` in `wrangler.deploy.json` together. Both controls must authorise the administrator. Keep the Cloudflare identity provider restricted to account members. Enable two-factor authentication on every administrator's Cloudflare account: Access signs administrators in through that account, and setup does not add a separate Access MFA requirement. If you want Access itself to enforce MFA, use Access independent MFA rather than a policy `require` rule: setup validates the exact allowlist policy and refuses to reuse a policy with requirements. Redeploy after updating Worker variables.
 
 Future administrators have separate Access subject records in D1. There are no application passwords or passkeys to recover. If you lose account access, use Cloudflare's account recovery process. Never add an Access bypass policy to restore access.
 
@@ -89,7 +100,7 @@ bun run dev
 
 Vite and Wrangler share the repository's `.wrangler/state` directory. Local mode accepts the development identity only on the configured HTTP loopback origin. It also permits Vite's local development scripts. Production settings omit `LOCAL_DEVELOPMENT`, and HTTPS origins cannot activate that mode even if the flag is accidentally present.
 
-Keep `.dev.vars` out of Git. The build can copy that file into its local output for development, but Wrangler publication uses the deployment configuration's variables. Do not pass `.dev.vars` as a production secrets file.
+Keep `.dev.vars` out of Git. The build can copy that file into its local output for development, but Wrangler publication uses the deployment configuration's variables. Deployment removes `.dev.vars` and `.env` copies from the build output it keeps for rollback, and from earlier retained outputs under `.wrangler/deployments/`. It treats that directory as its own disposable output. It refuses to run if `.wrangler` or `.wrangler/deployments` is a symbolic link, junction or file. Do not mount or link other data there. Do not pass `.dev.vars` as a production secrets file.
 
 ## Stored preview images
 

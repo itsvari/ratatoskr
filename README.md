@@ -37,6 +37,7 @@ Read [DEPLOY.md](DEPLOY.md) for account permissions, configuration, recovery, ba
 
 - Create a custom slug or leave the field empty for a pronounceable generated slug.
 - Generated slugs start at six letters. Allocation increases and remembers their length after bounded collision retries, up to 48 letters.
+- Short slugs are easy to share, not secret. The six-letter generated candidates number about 262,000 before screening, so a determined client can enumerate them within the public rate limit. A custom slug resists guessing only if it is long and random, not merely long. Keep confidential destinations behind their own access control.
 - Preview `example.com/slug+`, or `preview.example.com/slug` when enabled.
 - Sharing crawlers receive a generated Ratatoskr card when the destination does not advertise an Open Graph or Twitter image. Destinations with an image retain their own previews; browser visits still redirect immediately.
 - Edit destinations and expiry, revoke or restore a link, or delete it.
@@ -62,21 +63,23 @@ bun audit
 bun run verify:deployment
 ```
 
-Install Playwright Chromium once per development environment. `bun run verify` runs type checks, Workers tests with real local D1, Node script tests, browser regressions against an isolated local database, and a production build. The tests cover concurrent claims, creation retries, transaction rollback, deletion races, revocation, expiry, previews, Access signatures, origin checks and slug screening. Production sign-in still needs a browser check. See [the state-machine audit](docs/state-machines.md) for transition tables, confirmed failures and their regression coverage.
+Install Playwright Chromium once per development environment. `bun run verify` runs type checks, Workers tests with real local D1, Node script tests, browser regressions against an isolated local database, and a production build. The tests cover concurrent claims, creation retries, transaction rollback, deletion races, revocation, expiry, previews, Access signatures, origin checks and slug screening. Production sign-in still needs a browser check. See [the state-machine audit](docs/state-machines.md) for transition tables, confirmed failures and their regression coverage, and [the security audit record](docs/security-audit.md) for the November 2026 findings, decisions and regressions.
 
-The lockfile refreshes direct and compatible transitive packages, including the current workerd runtime. Overrides update pinned tooling packages, keep Cloudflare tooling's Undici on the patched 7.x line and Zod on 4.6.7 or later until their upstream pins catch up. Recheck `bun audit` when updating dependencies. Transitive packages requiring an incompatible major upgrade remain on their upstream-supported lines.
+The lockfile refreshes direct and compatible transitive packages, including the current workerd runtime. Overrides update pinned tooling packages, keep Cloudflare tooling's Undici on the patched 7.x line and Zod on 4.6.7 or later until their upstream pins catch up. Hono stays on 4.13.18 or later. Release 4.13.16 resolved the routing and middleware-ordering advisories this application depends on, and 4.13.18 completed follow-up fixes to helpers it does not use. Recheck `bun audit` when updating dependencies. Transitive packages requiring an incompatible major upgrade remain on their upstream-supported lines.
 
 ## Operating limits
 
 The application targets the Workers Free plan. Dynamic requests count against the account's daily Worker allowance. Link resolution uses one indexed primary D1 read and no click-counter writes. Redirects use `302` and `no-store` so edits and revocations take effect for new lookups. Already delivered redirects cannot be recalled.
 
-Private creation, Access and application rate limits reduce abuse. Worker rate limits are location-local and permissive. Distributed bot traffic can still exhaust free allowances. Configure zone-level security rules if you need to reject traffic before Worker invocation.
+Private creation, Access and application rate limits reduce abuse. The public limiter covers every public request that passes admission, including the home page, except the static `/_health` check. Requests refused during admission, such as unknown hosts, non-canonical paths, public management paths and unsupported methods, answer before it without reading D1. The two self-hosted fonts under `/_fonts/` are served directly by Workers Static Assets, before the Worker runs, so they bypass the limiter and the Worker's headers. Worker rate limits are location-local and permissive. Distributed bot traffic can still exhaust free allowances. Configure zone-level security rules if you need to reject traffic before Worker invocation.
+
+The Worker makes every admission decision from the same decoded path that Hono routes on. A path whose percent-encoding decodes to something else, such as `/%61pi/links`, receives 404 in the admission middleware, before any handler runs or D1 is read. The only exception is local development, where escaped Vite module paths outside the management paths reach the asset server. Management API handlers also refuse to run without an authenticated administrator. After authentication, the API rejects requests whose Fetch Metadata reports a cross-site or same-site origin, which includes sibling subdomains. Plain HTTP requests that reach the Worker for a configured hostname receive a 308 to HTTPS; Cloudflare Access or a zone rule may answer first. Worker responses over HTTPS carry `Strict-Transport-Security` for one year, without `includeSubDomains` because other hostnames in the zone may not serve HTTPS. Worker responses also ask search engines not to index them, through `X-Robots-Tag`; redirects carry `noindex` without `nofollow`, so crawlers still follow shortlinks to a destination's own card. There is deliberately no `robots.txt` disallow, because some sharing crawlers obey it and would stop rendering cards.
 
 Generated-slug screening checks substrings and coarse phonetic variants across syllable boundaries. The blocklist covers English and selected common romanisations. It deliberately rejects some benign candidates and cannot guarantee neutrality in every language. Custom slugs are administrator-chosen.
 
 Explicit destination previews display the stored URL without fetching external content. They include Open Graph and Twitter metadata pointing to a 600 × 315 PNG at `/_preview/slug.png`, generated from the stored title, destination hostname and shortlink using the preview page's black and purple styling. The admin browser renders with bundled fonts and uploads compressed image sections, which the Worker validates before storing. Image generation uses no external services.
 
-On plain shortlinks, recognised sharing crawlers check the destination's HTML for a non-empty HTTP(S) Open Graph or Twitter image address. The check uses no visitor credentials, takes at most two seconds, reads at most 64 KiB and follows at most three redirects. IP literals, local/internal names, non-standard ports and the shortener's own hosts are skipped. Missing metadata, errors and timeouts select the generated card. Destination images are not downloaded or verified. Other user agents continue to receive the usual redirect.
+On plain shortlinks, recognised sharing crawlers check the destination's HTML for a non-empty HTTP(S) Open Graph or Twitter image address. The check uses no visitor credentials, takes at most two seconds, reads at most 64 KiB and follows at most three redirects. IP literals, local/internal names, non-standard ports and the shortener's own hosts are skipped, however many trailing dots a hostname carries. The check screens names, not resolved addresses. It assumes administrators choose destinations and the Workers runtime refuses private-network subrequests, and it returns only whether an image address exists. The destination server chooses any redirect targets, which pass the same name checks. Missing metadata, errors and timeouts select the generated card. Destination images are not downloaded or verified. Other user agents continue to receive the usual redirect.
 
 Preview pages and images read current link data from primary D1 and use `no-store`, so edits, expiry, revocation and deletion apply to new requests. Sharing services can retain cards they have already fetched. Previews do not verify a destination's safety or any later redirects.
 
@@ -85,7 +88,7 @@ Generated images assemble stored compressed sections after checking link availab
 ## Source map
 
 - `src/index.ts`: host routing, HTTP validation and security headers.
-- `src/auth.ts`: Access JWT and mutation-origin checks.
+- `src/auth.ts`: Access JWT, mutation-origin and Fetch Metadata checks.
 - `src/links.ts`: D1 operations and atomic audit records.
 - `src/settings.ts`: shared display name and atomic settings audit records.
 - `src/slugs.ts`: generation and screening.
